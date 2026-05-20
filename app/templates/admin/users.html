@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Usuários{% endblock %}
+{% block page_title %}Gerenciamento de Usuários{% endblock %}
+
+{% block navbar_actions %}
+<a href="/admin/users/new" class="btn btn-primary btn-sm">
+  <i class="bi bi-person-plus me-1"></i>Novo Usuário
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Nome</th>
+            <th>E-mail</th>
+            <th>Perfil</th>
+            <th>Departamento</th>
+            <th>Status</th>
+            <th>Cadastro</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td class="fw-semibold">{{ u.name }}</td>
+            <td>{{ u.email }}</td>
+            <td>
+              {% if u.role.value == 'admin' %}<span class="badge bg-danger">Administrador</span>
+              {% elif u.role.value == 'approver' %}<span class="badge bg-warning text-dark">Aprovador</span>
+              {% else %}<span class="badge bg-secondary">Usuário</span>{% endif %}
+            </td>
+            <td class="text-muted">{{ u.department or '—' }}</td>
+            <td>
+              {% if u.is_active %}
+              <span class="badge bg-success">Ativo</span>
+              {% else %}
+              <span class="badge bg-secondary">Inativo</span>
+              {% endif %}
+            </td>
+            <td class="text-muted small">{{ u.created_at.strftime('%d/%m/%Y') }}</td>
+            <td>
+              <div class="d-flex gap-1">
+                <a href="/admin/users/{{ u.id }}/edit" class="btn btn-sm btn-outline-secondary">
+                  <i class="bi bi-pencil"></i>
+                </a>
+                {% if u.id != current_user.id %}
+                <form method="post" action="/admin/users/{{ u.id }}/toggle"
+                      onsubmit="return confirm('Alterar status do usuário?')">
+                  <button class="btn btn-sm btn-outline-{{ 'danger' if u.is_active else 'success' }}">
+                    <i class="bi bi-{{ 'pause' if u.is_active else 'play' }}"></i>
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

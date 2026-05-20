@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Relatórios{% endblock %}
+{% block page_title %}Relatórios e Indicadores{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<!-- KPI Cards -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-4">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body py-4">
+        <div class="fs-1 fw-bold text-primary">{{ total }}</div>
+        <div class="text-muted">Total de chamados</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body py-4">
+        <div class="fs-1 fw-bold text-warning">{{ open_count }}</div>
+        <div class="text-muted">Em aberto</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body py-4">
+        <div class="fs-1 fw-bold text-success">{{ completed_count }}</div>
+        <div class="text-muted">Concluídos</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold">Por Status</div>
+      <div class="card-body">
+        <canvas id="chartStatus" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold">Por Categoria</div>
+      <div class="card-body">
+        <canvas id="chartCategory" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-header bg-white fw-semibold">Por Prioridade</div>
+      <div class="card-body">
+        <canvas id="chartPriority" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Daily trend -->
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-header bg-white fw-semibold">Chamados por Dia (últimos 30 dias)</div>
+  <div class="card-body">
+    <canvas id="chartDaily" height="80"></canvas>
+  </div>
+</div>
+
+<!-- Recent tickets table -->
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-white fw-semibold">Chamados Recentes</div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr><th>#</th><th>Título</th><th>Categoria</th><th>Prioridade</th><th>Status</th><th>Data</th></tr>
+        </thead>
+        <tbody>
+          {% for t in recent_tickets %}
+          <tr style="cursor:pointer" onclick="location.href='/tickets/{{ t.id }}'">
+            <td class="text-muted">{{ t.id }}</td>
+            <td>{{ t.title }}</td>
+            <td>{{ CATEGORY_LABELS[t.category] }}</td>
+            <td><span class="badge bg-{{ PRIORITY_COLORS[t.priority] }}">{{ PRIORITY_LABELS[t.priority] }}</span></td>
+            <td><span class="badge bg-{{ STATUS_COLORS[t.status] }}">{{ STATUS_LABELS[t.status] }}</span></td>
+            <td class="text-muted small">{{ t.created_at.strftime('%d/%m/%Y') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const COLORS = ['#0d6efd','#6f42c1','#d63384','#fd7e14','#ffc107','#198754','#dc3545','#0dcaf0'];
+
+function pie(id, labels, data) {
+  new Chart(document.getElementById(id), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: COLORS }] },
+    options: { plugins: { legend: { position: 'bottom' } }, responsive: true }
+  });
+}
+
+pie('chartStatus',
+  [{% for s, c in by_status %}"{{ STATUS_LABELS[s] }}"{% if not loop.last %},{% endif %}{% endfor %}],
+  [{% for s, c in by_status %}{{ c }}{% if not loop.last %},{% endif %}{% endfor %}]
+);
+pie('chartCategory',
+  [{% for cat, c in by_category %}"{{ CATEGORY_LABELS[cat] }}"{% if not loop.last %},{% endif %}{% endfor %}],
+  [{% for cat, c in by_category %}{{ c }}{% if not loop.last %},{% endif %}{% endfor %}]
+);
+pie('chartPriority',
+  [{% for p, c in by_priority %}"{{ PRIORITY_LABELS[p] }}"{% if not loop.last %},{% endif %}{% endfor %}],
+  [{% for p, c in by_priority %}{{ c }}{% if not loop.last %},{% endif %}{% endfor %}]
+);
+
+new Chart(document.getElementById('chartDaily'), {
+  type: 'bar',
+  data: {
+    labels: [{% for d, c in daily_counts %}"{{ d }}"{% if not loop.last %},{% endif %}{% endfor %}],
+    datasets: [{
+      label: 'Chamados',
+      data: [{% for d, c in daily_counts %}{{ c }}{% if not loop.last %},{% endif %}{% endfor %}],
+      backgroundColor: '#0d6efd80',
+      borderColor: '#0d6efd',
+      borderWidth: 1,
+    }]
+  },
+  options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+});
+</script>
+{% endblock %}

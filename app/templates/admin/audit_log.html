@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Log de Auditoria{% endblock %}
+{% block page_title %}Log de Auditoria{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Data/Hora</th>
+            <th>Usuário</th>
+            <th>Ação</th>
+            <th>Entidade</th>
+            <th>IP</th>
+          </tr>
+        </thead>
+        <tbody class="small">
+          {% for log in logs %}
+          <tr>
+            <td class="text-muted">{{ log.created_at.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+            <td>{{ log.user.name if log.user else '—' }}</td>
+            <td><code>{{ log.action }}</code></td>
+            <td>
+              {% if log.entity_type %}
+              <span class="text-muted">{{ log.entity_type }}</span>
+              {% if log.entity_id %}
+              {% if log.entity_type == 'ticket' %}
+              <a href="/tickets/{{ log.entity_id }}">#{{ log.entity_id }}</a>
+              {% else %}
+              #{{ log.entity_id }}
+              {% endif %}
+              {% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-muted">{{ log.ip_address or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

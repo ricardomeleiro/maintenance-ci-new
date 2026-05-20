@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if editing else 'Novo' }} Usuário{% endblock %}
+{% block page_title %}{{ 'Editar Usuário' if editing else 'Novo Usuário' }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        {% if error %}
+        <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="{{ '/admin/users/' + editing.id|string + '/edit' if editing else '/admin/users/new' }}">
+          <div class="mb-3">
+            <label class="form-label">Nome completo</label>
+            <input type="text" name="name" class="form-control"
+                   value="{{ editing.name if editing else '' }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">E-mail</label>
+            <input type="email" name="email" class="form-control"
+                   value="{{ editing.email if editing else '' }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Perfil</label>
+            <select name="role" class="form-select" required>
+              {% for r in Role %}
+              <option value="{{ r.value }}" {% if editing and editing.role == r %}selected{% endif %}>
+                {{ ROLE_LABELS[r] }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Departamento</label>
+            <input type="text" name="department" class="form-control"
+                   value="{{ editing.department or '' if editing else '' }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">{{ 'Nova senha (deixe em branco para não alterar)' if editing else 'Senha' }}</label>
+            <input type="password" name="{{ 'new_password' if editing else 'password' }}"
+                   class="form-control" {{ '' if editing else 'required' }}>
+          </div>
+          {% if editing %}
+          <div class="mb-4">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" id="is_active" name="is_active"
+                     value="on" {% if editing.is_active %}checked{% endif %}>
+              <label class="form-check-label" for="is_active">Usuário ativo</label>
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-save me-1"></i>Salvar
+            </button>
+            <a href="/admin/users" class="btn btn-outline-secondary">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

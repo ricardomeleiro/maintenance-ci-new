@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Chamados{% endblock %}
+{% block page_title %}Chamados{% endblock %}
+
+{% block navbar_actions %}
+{% if current_user.role.value == 'user' %}
+<a href="/tickets/new" class="btn btn-primary btn-sm">
+  <i class="bi bi-plus-lg me-1"></i>Novo Chamado
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Filters -->
+<form method="get" action="/tickets" class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <div class="row g-2 align-items-end">
+      <div class="col-sm-6 col-md-3">
+        <label class="form-label small text-muted mb-1">Status</label>
+        <select name="status" class="form-select form-select-sm">
+          <option value="">Todos</option>
+          {% for s in TicketStatus %}
+          <option value="{{ s.value }}" {% if filters.status == s.value %}selected{% endif %}>
+            {{ STATUS_LABELS[s] }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-6 col-md-3">
+        <label class="form-label small text-muted mb-1">Categoria</label>
+        <select name="category" class="form-select form-select-sm">
+          <option value="">Todas</option>
+          {% for c in TicketCategory %}
+          <option value="{{ c.value }}" {% if filters.category == c.value %}selected{% endif %}>
+            {{ CATEGORY_LABELS[c] }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-6 col-md-2">
+        <label class="form-label small text-muted mb-1">Prioridade</label>
+        <select name="priority" class="form-select form-select-sm">
+          <option value="">Todas</option>
+          {% for p in TicketPriority %}
+          <option value="{{ p.value }}" {% if filters.priority == p.value %}selected{% endif %}>
+            {{ PRIORITY_LABELS[p] }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-sm-6 col-md-3">
+        <label class="form-label small text-muted mb-1">Buscar</label>
+        <input type="text" name="search" class="form-control form-control-sm"
+               placeholder="Título ou descrição..." value="{{ filters.search or '' }}">
+      </div>
+      <div class="col-md-1">
+        <button type="submit" class="btn btn-sm btn-outline-primary w-100">
+          <i class="bi bi-search"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    {% if tickets %}
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>#</th>
+            <th>Título</th>
+            {% if current_user.role.value != 'user' %}<th>Solicitante</th>{% endif %}
+            <th>Categoria</th>
+            <th>Prioridade</th>
+            <th>Status</th>
+            <th>Local</th>
+            <th>Data</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in tickets %}
+          <tr style="cursor:pointer" onclick="location.href='/tickets/{{ t.id }}'">
+            <td class="text-muted">{{ t.id }}</td>
+            <td class="fw-semibold">{{ t.title }}</td>
+            {% if current_user.role.value != 'user' %}
+            <td>{{ t.creator.name }}</td>
+            {% endif %}
+            <td>{{ CATEGORY_LABELS[t.category] }}</td>
+            <td>
+              <span class="badge bg-{{ PRIORITY_COLORS[t.priority] }}">
+                {{ PRIORITY_LABELS[t.priority] }}
+              </span>
+            </td>
+            <td>
+              <span class="badge bg-{{ STATUS_COLORS[t.status] }}">
+                {{ STATUS_LABELS[t.status] }}
+              </span>
+            </td>
+            <td class="text-muted small">{{ t.location or '—' }}</td>
+            <td class="text-muted small">{{ t.created_at.strftime('%d/%m/%Y') }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-search fs-1 d-block mb-2"></i>
+      Nenhum chamado encontrado com os filtros aplicados.
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
