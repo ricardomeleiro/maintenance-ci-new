@@ -51,18 +51,34 @@ def pending_approvals(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_approver),
 ):
-    query = db.query(Ticket).filter(Ticket.status == TicketStatus.UNDER_REVIEW)
+    review_query = db.query(Ticket).filter(Ticket.status == TicketStatus.UNDER_REVIEW)
     if current_user.role == Role.APPROVER and current_user.approval_level:
-        query = query.filter(Ticket.current_approval_level == current_user.approval_level)
+        review_query = review_query.filter(
+            Ticket.current_approval_level == current_user.approval_level
+        )
+    review_tickets = review_query.order_by(Ticket.created_at.asc()).all()
 
-    tickets = query.order_by(Ticket.created_at.asc()).all()
+    approved_tickets = (
+        db.query(Ticket)
+        .filter(Ticket.status == TicketStatus.APPROVED)
+        .order_by(Ticket.created_at.asc())
+        .all()
+    )
+    inprogress_tickets = (
+        db.query(Ticket)
+        .filter(Ticket.status == TicketStatus.IN_PROGRESS)
+        .order_by(Ticket.created_at.asc())
+        .all()
+    )
 
     return templates.TemplateResponse(
         "approvals/pending.html",
         {
             "request": request,
             "current_user": current_user,
-            "tickets": tickets,
+            "review_tickets": review_tickets,
+            "approved_tickets": approved_tickets,
+            "inprogress_tickets": inprogress_tickets,
             "STATUS_LABELS": STATUS_LABELS,
             "STATUS_COLORS": STATUS_COLORS,
             "PRIORITY_LABELS": PRIORITY_LABELS,
@@ -173,6 +189,11 @@ async def approve_ticket(
         ticket, new_status.value, ticket.creator.email, history_note, ticket.scheduled_date,
     )
 
+    # After final approval redirect to the ticket so the approver can
+    # immediately see the "Iniciar Execução" button; intermediate levels
+    # go back to the list.
+    if new_status == TicketStatus.APPROVED:
+        return RedirectResponse(f"/tickets/{ticket_id}", status_code=302)
     return RedirectResponse("/tickets", status_code=302)
 
 
@@ -222,7 +243,7 @@ async def reject_ticket(
 
 # ── Ações de execução (Iniciar, Concluir) ─────────────────────────────────
 @router.post("/{ticket_id}/start")
-def start_execution(
+async def start_execution(
     ticket_id: int,
     note: Optional[str] = Form(None),
     db: Session = Depends(get_db),
@@ -235,12 +256,13 @@ def start_execution(
     old_status = ticket.status
     ticket.status = TicketStatus.IN_PROGRESS
 
+    history_note = note or f"Execução iniciada por {current_user.name}."
     db.add(TicketStatusHistory(
         ticket_id=ticket_id,
         old_status=old_status,
         new_status=TicketStatus.IN_PROGRESS,
         changed_by_id=current_user.id,
-        note=note or "Execução iniciada.",
+        note=history_note,
     ))
     db.commit()
     add_audit(db, current_user.id, "ticket_in_progress", "ticket", ticket_id)
@@ -248,8 +270,9 @@ def start_execution(
 
 
 @router.post("/{ticket_id}/complete")
-def complete_ticket(
+async def complete_ticket(
     ticket_id: int,
+    background_tasks: BackgroundTasks,
     note: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_approver),
@@ -262,13 +285,23 @@ def complete_ticket(
     ticket.status = TicketStatus.COMPLETED
     ticket.completed_at = datetime.utcnow()
 
+    history_note = note or "Serviço concluído."
     db.add(TicketStatusHistory(
         ticket_id=ticket_id,
         old_status=old_status,
         new_status=TicketStatus.COMPLETED,
         changed_by_id=current_user.id,
-        note=note or "Serviço concluído.",
+        note=history_note,
     ))
     db.commit()
+    db.refresh(ticket)
+
     add_audit(db, current_user.id, "ticket_completed", "ticket", ticket_id)
+
+    from services.notifications import notify_requester_status_changed
+    background_tasks.add_task(
+        notify_requester_status_changed,
+        ticket, "completed", ticket.creator.email, history_note,
+    )
+
     return RedirectResponse(f"/tickets/{ticket_id}", status_code=302)
