@@ -3,41 +3,567 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Login — Sistema de Manutenção Predial</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <title>Login — Predial360</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="/static/css/custom.css">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      background: #060b14;
+      overflow: hidden;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      cursor: none;
+    }
+
+    #bg-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+
+    /* Custom cursor */
+    #cursor {
+      position: fixed;
+      width: 12px;
+      height: 12px;
+      background: #3b82f6;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%);
+      transition: transform 0.1s, background 0.2s;
+      box-shadow: 0 0 12px #3b82f6, 0 0 24px rgba(59,130,246,0.5);
+    }
+    #cursor-ring {
+      position: fixed;
+      width: 36px;
+      height: 36px;
+      border: 1.5px solid rgba(59,130,246,0.6);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 9998;
+      transform: translate(-50%, -50%);
+      transition: transform 0.18s ease-out, width 0.2s, height 0.2s, opacity 0.2s;
+    }
+
+    .login-wrapper {
+      position: relative;
+      z-index: 10;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .login-card {
+      background: rgba(255,255,255,0.055);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 24px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow:
+        0 32px 64px rgba(0,0,0,0.6),
+        0 0 0 1px rgba(255,255,255,0.04),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+      overflow: hidden;
+      animation: cardIn 0.7s cubic-bezier(0.22,1,0.36,1) both;
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(30px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .login-header {
+      padding: 2.2rem 2rem 1.6rem;
+      text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      background: linear-gradient(160deg, rgba(59,130,246,0.08) 0%, transparent 70%);
+    }
+
+    .logo-img {
+      height: 44px;
+      margin-bottom: 1.1rem;
+      filter: brightness(0) invert(1);
+      opacity: 0.92;
+      animation: fadeIn 0.9s 0.3s both;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 0.92; transform: translateY(0); }
+    }
+
+    .app-name {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #f8fafc;
+      letter-spacing: -1px;
+      line-height: 1;
+      animation: fadeIn 0.9s 0.4s both;
+    }
+
+    .app-name .accent {
+      color: #3b82f6;
+      text-shadow: 0 0 20px rgba(59,130,246,0.6);
+    }
+
+    .app-subtitle {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.38);
+      margin-top: 0.4rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      animation: fadeIn 0.9s 0.5s both;
+    }
+
+    .login-body { padding: 2rem; }
+
+    .form-label {
+      display: block;
+      color: rgba(255,255,255,0.6);
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 0.45rem;
+    }
+
+    .input-wrap {
+      position: relative;
+      margin-bottom: 1.2rem;
+    }
+
+    .input-wrap i {
+      position: absolute;
+      left: 0.9rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(255,255,255,0.3);
+      font-size: 0.95rem;
+      pointer-events: none;
+      transition: color 0.2s;
+    }
+
+    .form-control {
+      width: 100%;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #f1f5f9;
+      border-radius: 12px;
+      padding: 0.7rem 1rem 0.7rem 2.5rem;
+      font-size: 0.9rem;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+
+    .form-control:focus {
+      background: rgba(59,130,246,0.08);
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.18);
+      color: #fff;
+    }
+
+    .form-control:focus + i,
+    .input-wrap:focus-within i {
+      color: #3b82f6;
+    }
+
+    .form-control::placeholder { color: rgba(255,255,255,0.2); }
+
+    .btn-login {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.95rem;
+      padding: 0.8rem;
+      letter-spacing: 0.3px;
+      cursor: none;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      margin-top: 0.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-login::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(255,255,255,0.12), transparent);
+      pointer-events: none;
+    }
+
+    .btn-login:hover {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(37,99,235,0.45);
+    }
+
+    .btn-login:active { transform: translateY(0); }
+
+    .alert-danger {
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.25);
+      color: #fca5a5;
+      border-radius: 10px;
+      padding: 0.6rem 1rem;
+      font-size: 0.85rem;
+      margin-bottom: 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .login-footer {
+      padding: 1rem 2rem 1.5rem;
+      text-align: center;
+      color: rgba(255,255,255,0.2);
+      font-size: 0.72rem;
+      letter-spacing: 0.5px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+  </style>
 </head>
-<body class="bg-light">
-<div class="min-vh-100 d-flex align-items-center justify-content-center">
-  <div class="card shadow" style="width:100%;max-width:400px">
-    <div class="card-header bg-primary text-white text-center py-3">
-      <i class="bi bi-building-gear fs-3 d-block mb-1"></i>
-      <h5 class="mb-0">Sistema de Manutenção Predial</h5>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<div class="login-wrapper">
+  <div class="login-card">
+    <div class="login-header">
+      <img src="https://assinatura.c-innovation.com.br/ci-logo.png" alt="C-Innovation" class="logo-img">
+      <div class="app-name">Predial<span class="accent">360</span></div>
+      <div class="app-subtitle">Sistema de Manutenção Predial</div>
     </div>
-    <div class="card-body p-4">
+
+    <div class="login-body">
       {% if error %}
-      <div class="alert alert-danger py-2">
-        <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
+      <div class="alert-danger">
+        <i class="bi bi-exclamation-triangle-fill"></i>{{ error }}
       </div>
       {% endif %}
 
       <form method="post" action="/login">
-        <div class="mb-3">
-          <label for="email" class="form-label">E-mail</label>
-          <input type="email" class="form-control" id="email" name="email" required autofocus>
+        <div>
+          <label class="form-label" for="email">E-mail</label>
+          <div class="input-wrap">
+            <input type="email" class="form-control" id="email" name="email"
+                   placeholder="seu@email.com.br" required autofocus>
+            <i class="bi bi-envelope"></i>
+          </div>
         </div>
-        <div class="mb-4">
-          <label for="password" class="form-label">Senha</label>
-          <input type="password" class="form-control" id="password" name="password" required>
+        <div>
+          <label class="form-label" for="password">Senha</label>
+          <div class="input-wrap">
+            <input type="password" class="form-control" id="password" name="password"
+                   placeholder="••••••••" required>
+            <i class="bi bi-lock"></i>
+          </div>
         </div>
-        <button type="submit" class="btn btn-primary w-100">
-          <i class="bi bi-box-arrow-in-right me-1"></i>Entrar
+        <button type="submit" class="btn-login">
+          <i class="bi bi-box-arrow-in-right"></i>Entrar
         </button>
       </form>
     </div>
+
+    <div class="login-footer">© 2025 C-Innovation · Predial360</div>
   </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+(function () {
+  /* ── Canvas setup ── */
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H;
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  /* ── Mouse tracking ── */
+  const mouse = { x: -2000, y: -2000, vx: 0, vy: 0, px: -2000, py: -2000 };
+  window.addEventListener('mousemove', e => {
+    mouse.vx = e.clientX - mouse.x;
+    mouse.vy = e.clientY - mouse.y;
+    mouse.px = mouse.x;
+    mouse.py = mouse.y;
+    mouse.x  = e.clientX;
+    mouse.y  = e.clientY;
+  });
+
+  /* ── Custom cursor ── */
+  const cur  = document.getElementById('cursor');
+  const ring = document.getElementById('cursor-ring');
+  let ringX = -200, ringY = -200;
+
+  window.addEventListener('mousemove', e => {
+    cur.style.left  = e.clientX + 'px';
+    cur.style.top   = e.clientY + 'px';
+  });
+
+  (function animCursor() {
+    ringX += (mouse.x - ringX) * 0.12;
+    ringY += (mouse.y - ringY) * 0.12;
+    ring.style.left = ringX + 'px';
+    ring.style.top  = ringY + 'px';
+    requestAnimationFrame(animCursor);
+  })();
+
+  /* ── Gear definitions ── */
+  const GEARS = [
+    { rx: 0.04, ry: 0.08,  r: 100, teeth: 14, baseSpeed: 0.0025, dir:  1, phase: 0.0  },
+    { rx: 0.92, ry: 0.06,  r:  70, teeth: 10, baseSpeed: 0.004,  dir: -1, phase: 1.2  },
+    { rx: 0.97, ry: 0.50,  r: 120, teeth: 18, baseSpeed: 0.002,  dir:  1, phase: 0.5  },
+    { rx: 0.03, ry: 0.72,  r:  85, teeth: 12, baseSpeed: 0.003,  dir: -1, phase: 2.0  },
+    { rx: 0.50, ry: 0.96,  r:  75, teeth: 10, baseSpeed: 0.0035, dir:  1, phase: 0.8  },
+    { rx: 0.78, ry: 0.80,  r:  55, teeth:  8, baseSpeed: 0.006,  dir: -1, phase: 1.5  },
+    { rx: 0.22, ry: 0.38,  r:  48, teeth:  7, baseSpeed: 0.007,  dir:  1, phase: 0.3  },
+    { rx: 0.62, ry: 0.08,  r:  60, teeth:  9, baseSpeed: 0.005,  dir: -1, phase: 1.1  },
+    { rx: 0.15, ry: 0.92,  r:  42, teeth:  6, baseSpeed: 0.008,  dir:  1, phase: 2.5  },
+    { rx: 0.85, ry: 0.28,  r:  38, teeth:  6, baseSpeed: 0.009,  dir: -1, phase: 0.7  },
+  ];
+
+  GEARS.forEach(g => { g.angle = g.phase; });
+
+  /* ── Draw one gear ── */
+  function drawGear(g, influence) {
+    const x = g.rx * W;
+    const y = g.ry * H;
+    const R = g.r;
+    const T = g.teeth;
+    const tH = R * 0.28;
+    const innerR = R * 0.58;
+    const holeR  = R * 0.20;
+
+    /* Speed boost near cursor */
+    const speedMult = 1 + influence * 9;
+    g.angle += g.baseSpeed * g.dir * speedMult;
+
+    const alpha = 0.18 + influence * 0.28;
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(g.angle);
+
+    /* Glow when active */
+    if (influence > 0.05) {
+      ctx.shadowColor = '#60a5fa';
+      ctx.shadowBlur  = 30 * influence;
+    }
+
+    /* ── Gear outline ── */
+    ctx.beginPath();
+    const step = (Math.PI * 2) / T;
+    const gap  = 0.35; // fraction of step that is valley between teeth
+
+    for (let i = 0; i < T; i++) {
+      const a0 = i * step;
+      const a1 = a0 + step * (gap / 2);
+      const a2 = a0 + step * (0.5);
+      const a3 = a0 + step * (1 - gap / 2);
+
+      if (i === 0) ctx.moveTo(Math.cos(a0) * R, Math.sin(a0) * R);
+      else         ctx.lineTo(Math.cos(a0) * R, Math.sin(a0) * R);
+
+      ctx.lineTo(Math.cos(a1) * (R + tH), Math.sin(a1) * (R + tH));
+      ctx.lineTo(Math.cos(a2) * (R + tH), Math.sin(a2) * (R + tH));
+      ctx.lineTo(Math.cos(a3) * R,         Math.sin(a3) * R);
+    }
+    ctx.closePath();
+
+    /* Fill */
+    ctx.fillStyle = `rgba(30,64,175,${alpha})`;
+    ctx.fill();
+    ctx.strokeStyle = `rgba(96,165,250,${alpha * 1.4})`;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    /* ── Inner ring ── */
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.arc(0, 0, innerR, 0, Math.PI * 2);
+    ctx.fillStyle   = `rgba(15,23,42,${alpha * 1.2})`;
+    ctx.fill();
+    ctx.strokeStyle = `rgba(96,165,250,${alpha})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    /* ── Spokes ── */
+    const spokes = Math.max(3, Math.floor(T / 3));
+    for (let i = 0; i < spokes; i++) {
+      const a = (i / spokes) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * holeR * 1.8, Math.sin(a) * holeR * 1.8);
+      ctx.lineTo(Math.cos(a) * innerR * 0.88, Math.sin(a) * innerR * 0.88);
+      ctx.strokeStyle = `rgba(96,165,250,${alpha * 0.9})`;
+      ctx.lineWidth = R * 0.045;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+
+    /* ── Hub ── */
+    ctx.beginPath();
+    ctx.arc(0, 0, holeR, 0, Math.PI * 2);
+    ctx.fillStyle   = '#060b14';
+    ctx.fill();
+    ctx.strokeStyle = `rgba(96,165,250,${alpha * 1.2})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  /* ── Particles (cursor trail) ── */
+  const particles = [];
+  let lastParticle = 0;
+
+  window.addEventListener('mousemove', e => {
+    const now = Date.now();
+    const speed = Math.sqrt(mouse.vx ** 2 + mouse.vy ** 2);
+    if (now - lastParticle > 35 && speed > 1) {
+      particles.push({
+        x: e.clientX, y: e.clientY,
+        vx: (Math.random() - 0.5) * 0.8,
+        vy: -Math.random() * 1.2 - 0.3,
+        r: Math.random() * 2.5 + 0.8,
+        alpha: 0.7 + Math.random() * 0.3,
+        life: 1,
+      });
+      lastParticle = now;
+    }
+  });
+
+  function updateParticles() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life -= 0.028;
+      p.alpha = p.life * 0.75;
+      if (p.life <= 0) { particles.splice(i, 1); continue; }
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(96,165,250,${p.alpha})`;
+      ctx.fill();
+    }
+  }
+
+  /* ── Ripples (click) ── */
+  const ripples = [];
+  window.addEventListener('click', e => {
+    ripples.push({ x: e.clientX, y: e.clientY, r: 0, alpha: 0.8 });
+  });
+
+  function updateRipples() {
+    for (let i = ripples.length - 1; i >= 0; i--) {
+      const rp = ripples[i];
+      rp.r    += 5;
+      rp.alpha -= 0.025;
+      if (rp.alpha <= 0) { ripples.splice(i, 1); continue; }
+      ctx.beginPath();
+      ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(59,130,246,${rp.alpha * 0.7})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      /* Second ring */
+      if (rp.r > 20) {
+        ctx.beginPath();
+        ctx.arc(rp.x, rp.y, rp.r * 0.55, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(96,165,250,${rp.alpha * 0.35})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+  }
+
+  /* ── Energy beam between cursor and nearest gear ── */
+  function drawEnergyBeam() {
+    let nearest = null, minD = Infinity;
+    GEARS.forEach(g => {
+      const dx = mouse.x - g.rx * W;
+      const dy = mouse.y - g.ry * H;
+      const d  = Math.sqrt(dx * dx + dy * dy);
+      if (d < minD) { minD = d; nearest = g; }
+    });
+    if (!nearest || minD > 300) return;
+
+    const t = 1 - minD / 300;
+    const gx = nearest.rx * W;
+    const gy = nearest.ry * H;
+
+    const grad = ctx.createLinearGradient(mouse.x, mouse.y, gx, gy);
+    grad.addColorStop(0, `rgba(96,165,250,${t * 0.35})`);
+    grad.addColorStop(1, `rgba(59,130,246,0)`);
+
+    ctx.beginPath();
+    ctx.moveTo(mouse.x, mouse.y);
+    ctx.lineTo(gx, gy);
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = t * 2;
+    ctx.setLineDash([6, 8]);
+    ctx.lineDashOffset = -Date.now() * 0.04;
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  /* ── Main loop ── */
+  function animate() {
+    /* Background */
+    ctx.clearRect(0, 0, W, H);
+    const bgGrad = ctx.createRadialGradient(W * 0.5, H * 0.4, 0, W * 0.5, H * 0.5, Math.max(W, H) * 0.75);
+    bgGrad.addColorStop(0, '#0e1726');
+    bgGrad.addColorStop(1, '#060b14');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    /* Subtle vignette */
+    const vig = ctx.createRadialGradient(W/2, H/2, H*0.2, W/2, H/2, H*0.85);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.55)');
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, W, H);
+
+    /* Energy beam */
+    drawEnergyBeam();
+
+    /* Gears */
+    GEARS.forEach(g => {
+      const dx = mouse.x - g.rx * W;
+      const dy = mouse.y - g.ry * H;
+      const d  = Math.sqrt(dx * dx + dy * dy);
+      const influence = Math.max(0, 1 - d / 260);
+      drawGear(g, influence);
+    });
+
+    /* FX */
+    updateParticles();
+    updateRipples();
+
+    requestAnimationFrame(animate);
+  }
+
+  animate();
+})();
+</script>
 </body>
 </html>
