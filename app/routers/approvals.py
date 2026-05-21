@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from database import get_db
-from dependencies import require_approver, add_audit
+from dependencies import require_login, require_approver, add_audit
 from models.user import User, Role
 from models.ticket import (
     Ticket, TicketStatusHistory, TicketStatus, get_ticket_status_label,
@@ -35,10 +35,13 @@ def _ticket_or_404(ticket_id: int, db: Session) -> Ticket:
 
 
 def _can_act_at_level(user: User, level: int) -> bool:
-    """Admin pode agir em qualquer nível. Aprovador apenas no seu nível."""
+    """Admin age em qualquer nível. Aprovador com nível definido só age no seu nível;
+    aprovador sem nível definido age em qualquer nível."""
     if user.role == Role.ADMIN:
         return True
-    return user.role == Role.APPROVER and user.approval_level == level
+    if user.role == Role.APPROVER:
+        return user.approval_level is None or user.approval_level == level
+    return False
 
 
 # ── Fila de aprovações pendentes ─────────────────────────────────────────────
@@ -75,11 +78,14 @@ async def submit_for_approval(
     ticket_id: int,
     note: Optional[str] = Form(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_approver),
+    current_user: User = Depends(require_login),
 ):
     ticket = _ticket_or_404(ticket_id, db)
     if ticket.status != TicketStatus.OPEN:
         raise HTTPException(400, "Apenas chamados Abertos podem ser submetidos à análise.")
+
+    if current_user.role == Role.USER and ticket.created_by_id != current_user.id:
+        raise HTTPException(403, "Sem permissão para submeter este chamado.")
 
     old_status = ticket.status
     ticket.status = TicketStatus.UNDER_REVIEW

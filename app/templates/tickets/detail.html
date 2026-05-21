@@ -82,16 +82,26 @@
       <div class="card-header bg-white"><span class="fw-semibold">Histórico</span></div>
       <div class="card-body">
         {% for h in ticket.status_history %}
+        {% set is_intermediate = h.old_status and h.old_status == h.new_status %}
         <div class="d-flex gap-3 mb-3">
-          <div class="flex-shrink-0">
-            <span class="badge bg-{{ STATUS_COLORS[h.new_status] }} rounded-pill">&nbsp;</span>
+          <div class="flex-shrink-0 pt-1">
+            {% if is_intermediate %}
+            <span class="badge bg-success rounded-circle d-flex align-items-center justify-content-center"
+                  style="width:22px;height:22px"><i class="bi bi-check-lg" style="font-size:.7rem"></i></span>
+            {% else %}
+            <span class="badge bg-{{ STATUS_COLORS[h.new_status] }} rounded-pill">&nbsp;&nbsp;</span>
+            {% endif %}
           </div>
-          <div>
+          <div class="flex-grow-1">
+            {% if is_intermediate %}
+            <div class="fw-semibold text-success">{{ h.note }}</div>
+            {% else %}
             <div class="fw-semibold">{{ STATUS_LABELS[h.new_status] }}</div>
-            <div class="small text-muted">
+            {% if h.note %}<div class="small mt-1 text-muted">{{ h.note }}</div>{% endif %}
+            {% endif %}
+            <div class="small text-muted mt-1">
               {{ h.changed_by.name }} — {{ h.created_at.strftime('%d/%m/%Y %H:%M') }}
             </div>
-            {% if h.note %}<div class="small mt-1 text-muted">{{ h.note }}</div>{% endif %}
           </div>
         </div>
         {% endfor %}
@@ -217,8 +227,13 @@
 
         <!-- Aprovar no nível atual -->
         {% if ticket.status.value == 'under_review' %}
-          {% set can_approve = current_user.role.value == 'admin'
-             or (current_user.approval_level == ticket.current_approval_level) %}
+          {% set can_approve = (
+            current_user.role.value == 'admin'
+            or (current_user.role.value == 'approver' and (
+              current_user.approval_level is none
+              or current_user.approval_level == ticket.current_approval_level
+            ))
+          ) %}
           {% if can_approve %}
           <button class="btn btn-success btn-sm w-100" data-bs-toggle="modal" data-bs-target="#approveModal">
             <i class="bi bi-check-lg me-1"></i>
@@ -226,7 +241,11 @@
           </button>
           {% else %}
           <div class="alert alert-secondary py-2 small mb-0 text-center">
-            Este chamado aguarda aprovação N{{ ticket.current_approval_level }}.
+            <i class="bi bi-hourglass me-1"></i>
+            Aguardando aprovação N{{ ticket.current_approval_level }}
+            {% if current_user.approval_level %}
+            — seu nível é N{{ current_user.approval_level }}
+            {% endif %}
           </div>
           {% endif %}
         {% endif %}
@@ -255,15 +274,35 @@
     </div>
     {% endif %}
 
-    <!-- Cancelar (usuário) -->
-    {% if current_user.role.value == 'user' and ticket.created_by_id == current_user.id
-         and ticket.status.value in ('open',) %}
-    <form method="post" action="/tickets/{{ ticket.id }}/cancel"
-          onsubmit="return confirm('Cancelar este chamado?')">
-      <button class="btn btn-outline-danger btn-sm w-100">
-        <i class="bi bi-x-circle me-1"></i>Cancelar Chamado
-      </button>
-    </form>
+    <!-- Ações do usuário (ticket próprio) -->
+    {% if current_user.role.value == 'user' and ticket.created_by_id == current_user.id %}
+      {% if ticket.status.value == 'open' %}
+      <div class="d-grid gap-2 mb-3">
+        <form method="post" action="/approvals/{{ ticket.id }}/submit">
+          <button class="btn btn-info btn-sm w-100 text-white">
+            <i class="bi bi-send me-1"></i>Enviar para Aprovação
+          </button>
+        </form>
+        <form method="post" action="/tickets/{{ ticket.id }}/cancel"
+              onsubmit="return confirm('Cancelar este chamado?')">
+          <button class="btn btn-outline-danger btn-sm w-100">
+            <i class="bi bi-x-circle me-1"></i>Cancelar Chamado
+          </button>
+        </form>
+      </div>
+      {% endif %}
+    {% endif %}
+
+    <!-- Admin: excluir chamado -->
+    {% if current_user.role.value == 'admin' %}
+    <div class="mt-2">
+      <form method="post" action="/admin/tickets/{{ ticket.id }}/delete"
+            onsubmit="return confirm('ATENÇÃO: Isso excluirá permanentemente o chamado #{{ ticket.id }} e todos os seus dados. Esta ação não pode ser desfeita.\n\nDeseja continuar?')">
+        <button class="btn btn-sm btn-outline-danger w-100">
+          <i class="bi bi-trash me-1"></i>Excluir Chamado
+        </button>
+      </form>
+    </div>
     {% endif %}
   </div>
 </div>

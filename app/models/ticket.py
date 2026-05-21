@@ -113,13 +113,16 @@ class Ticket(Base):
     assignee = relationship("User", foreign_keys=[assigned_to_id])
     approver_user = relationship("User", foreign_keys=[approved_by_id])
     comments = relationship(
-        "TicketComment", back_populates="ticket", order_by="TicketComment.created_at"
+        "TicketComment", back_populates="ticket",
+        order_by="TicketComment.created_at", cascade="all, delete-orphan"
     )
     status_history = relationship(
-        "TicketStatusHistory", back_populates="ticket", order_by="TicketStatusHistory.created_at"
+        "TicketStatusHistory", back_populates="ticket",
+        order_by="TicketStatusHistory.created_at", cascade="all, delete-orphan"
     )
     attachments = relationship(
-        "TicketAttachment", back_populates="ticket", order_by="TicketAttachment.created_at"
+        "TicketAttachment", back_populates="ticket",
+        order_by="TicketAttachment.created_at", cascade="all, delete-orphan"
     )
 
     @property

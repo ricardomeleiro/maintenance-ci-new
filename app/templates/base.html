@@ -16,7 +16,7 @@
   <nav id="sidebar" class="bg-dark text-white d-flex flex-column p-0" style="min-width:220px;min-height:100vh">
     <div class="sidebar-brand px-3 py-3 border-bottom border-secondary">
       <a href="/dashboard" class="text-white text-decoration-none fw-bold">
-        <img src="https://assinatura.c-innovation.com.br/ci-logo.png" alt="logo" style="height:22px;filter:brightness(0) invert(1);opacity:.85;margin-right:8px;vertical-align:middle;">Predial<strong style="color:#3b82f6">360</strong>
+        <img src="https://assinatura.c-innovation.com.br/ci-logo.png" alt="logo" style="height:22px;margin-right:8px;vertical-align:middle;">Predial<strong style="color:#3b82f6">360</strong>
       </a>
     </div>
 
@@ -39,17 +39,17 @@
           <i class="bi bi-inbox me-2"></i>Aguardando Aprovação
         </a>
       </li>
+      <li class="nav-item">
+        <a href="/admin/reports" class="nav-link text-white {% if '/admin/reports' in request.url.path %}active bg-primary rounded mx-2{% endif %}">
+          <i class="bi bi-bar-chart-line me-2"></i>Relatórios
+        </a>
+      </li>
       {% endif %}
       {% if current_user and current_user.role.value == 'admin' %}
       <hr class="border-secondary mx-3 my-1">
       <li class="nav-item">
         <a href="/admin/dashboard" class="nav-link text-white {% if '/admin/dashboard' in request.url.path %}active bg-primary rounded mx-2{% endif %}">
           <i class="bi bi-speedometer2 me-2"></i>Painel Admin
-        </a>
-      </li>
-      <li class="nav-item">
-        <a href="/admin/reports" class="nav-link text-white {% if '/admin/reports' in request.url.path %}active bg-primary rounded mx-2{% endif %}">
-          <i class="bi bi-bar-chart-line me-2"></i>Relatórios
         </a>
       </li>
       <li class="nav-item">

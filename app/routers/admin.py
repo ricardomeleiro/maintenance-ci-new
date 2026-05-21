@@ -6,7 +6,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from database import get_db
-from dependencies import require_admin, add_audit
+from dependencies import require_admin, require_approver, add_audit
 from models.user import User, Role, ROLE_LABELS
 from models.ticket import (
     Ticket, TicketStatus, TicketCategory, TicketPriority,
@@ -150,11 +150,33 @@ def toggle_active(
     return RedirectResponse("/admin/users", status_code=302)
 
 
+@router.post("/tickets/{ticket_id}/delete")
+def delete_ticket(
+    ticket_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    import os, shutil
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(404)
+
+    ticket_title = ticket.title
+    attachment_dir = f"/app/uploads/tickets/{ticket_id}"
+    if os.path.exists(attachment_dir):
+        shutil.rmtree(attachment_dir, ignore_errors=True)
+
+    add_audit(db, current_user.id, "ticket_deleted", "ticket", ticket_id, {"title": ticket_title})
+    db.delete(ticket)
+    db.commit()
+    return RedirectResponse("/tickets", status_code=302)
+
+
 @router.get("/reports", response_class=HTMLResponse)
 def reports(
     request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_approver),
 ):
     total = db.query(func.count(Ticket.id)).scalar() or 0
     by_status = db.query(Ticket.status, func.count(Ticket.id)).group_by(Ticket.status).all()
