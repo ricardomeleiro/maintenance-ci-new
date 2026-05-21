@@ -245,6 +245,7 @@ async def reject_ticket(
 @router.post("/{ticket_id}/start")
 async def start_execution(
     ticket_id: int,
+    background_tasks: BackgroundTasks,
     note: Optional[str] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_approver),
@@ -265,7 +266,15 @@ async def start_execution(
         note=history_note,
     ))
     db.commit()
+    db.refresh(ticket)
     add_audit(db, current_user.id, "ticket_in_progress", "ticket", ticket_id)
+
+    from services.notifications import notify_requester_status_changed
+    background_tasks.add_task(
+        notify_requester_status_changed,
+        ticket, "in_progress", ticket.creator.email, history_note,
+    )
+
     return RedirectResponse(f"/tickets/{ticket_id}", status_code=302)
 
 

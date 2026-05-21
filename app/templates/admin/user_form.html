@@ -53,9 +53,19 @@
           <div class="mb-3">
             <label class="form-label">{{ 'Nova senha (deixe em branco para não alterar)' if editing else 'Senha' }}</label>
             <input type="password" name="{{ 'new_password' if editing else 'password' }}"
-                   class="form-control" {{ '' if editing else 'required' }}>
+                   class="form-control" {{ '' if editing else 'required' }}
+                   id="password-field" oninput="toggleEmailOption()">
           </div>
           {% if editing %}
+          <div class="mb-3" id="email-option" style="display:none">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" id="send_password_email"
+                     name="send_password_email" value="on" checked>
+              <label class="form-check-label" for="send_password_email">
+                <i class="bi bi-envelope me-1 text-primary"></i>Enviar nova senha por e-mail para o usuário
+              </label>
+            </div>
+          </div>
           <div class="mb-4">
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="is_active" name="is_active"
@@ -70,6 +80,11 @@
             var role = document.getElementById("role-select").value;
             document.getElementById("level-field").style.display =
               role === "approver" ? "block" : "none";
+          }
+          function toggleEmailOption() {
+            var pw = document.getElementById("password-field");
+            var opt = document.getElementById("email-option");
+            if (opt) opt.style.display = pw && pw.value.length > 0 ? "block" : "none";
           }
           toggleLevelField();
           </script>

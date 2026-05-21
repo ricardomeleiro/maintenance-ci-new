@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Importar Usuários{% endblock %}
+{% block page_title %}Importar Usuários via CSV{% endblock %}
+
+{% block navbar_actions %}
+<a href="/admin/users" class="btn btn-outline-secondary btn-sm">
+  <i class="bi bi-arrow-left me-1"></i>Voltar
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+
+    {# ── Resultado da importação ───────────────────────────────────────── #}
+    {% if results is not none %}
+    <div class="mb-4">
+      <div class="row g-3 mb-3">
+        <div class="col-4">
+          <div class="card border-0 shadow-sm text-center py-3">
+            <div class="fs-2 fw-bold text-success">{{ results.created | length }}</div>
+            <div class="small text-muted">Criados</div>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="card border-0 shadow-sm text-center py-3">
+            <div class="fs-2 fw-bold text-warning">{{ results.skipped | length }}</div>
+            <div class="small text-muted">Ignorados</div>
+          </div>
+        </div>
+        <div class="col-4">
+          <div class="card border-0 shadow-sm text-center py-3">
+            <div class="fs-2 fw-bold text-danger">{{ results.errors | length }}</div>
+            <div class="small text-muted">Erros</div>
+          </div>
+        </div>
+      </div>
+
+      {% if results.created %}
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-success bg-opacity-10 py-2 small fw-semibold text-success">
+          <i class="bi bi-check-circle me-1"></i>Criados com sucesso
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0 small">
+            <thead class="table-light"><tr><th>Nome</th><th>E-mail</th><th>Perfil</th></tr></thead>
+            <tbody>
+              {% for u in results.created %}
+              <tr>
+                <td>{{ u.name }}</td>
+                <td>{{ u.email }}</td>
+                <td><span class="badge bg-secondary">{{ u.role }}</span></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if results.skipped %}
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-warning bg-opacity-10 py-2 small fw-semibold text-warning">
+          <i class="bi bi-skip-forward me-1"></i>Ignorados (e-mail já cadastrado)
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0 small">
+            <thead class="table-light"><tr><th>E-mail</th><th>Motivo</th></tr></thead>
+            <tbody>
+              {% for s in results.skipped %}
+              <tr><td>{{ s.email }}</td><td class="text-muted">{{ s.reason }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if results.errors %}
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-danger bg-opacity-10 py-2 small fw-semibold text-danger">
+          <i class="bi bi-exclamation-triangle me-1"></i>Erros
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0 small">
+            <thead class="table-light"><tr><th>Referência</th><th>Motivo</th></tr></thead>
+            <tbody>
+              {% for e in results.errors %}
+              <tr><td>{{ e.row }}</td><td class="text-danger">{{ e.reason }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if results.created %}
+      <a href="/admin/users" class="btn btn-primary btn-sm">
+        <i class="bi bi-people me-1"></i>Ver lista de usuários
+      </a>
+      {% endif %}
+      <hr class="my-4">
+    </div>
+    {% endif %}
+
+    {# ── Formulário de upload ─────────────────────────────────────────────── #}
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header py-2 fw-semibold small">
+        <i class="bi bi-upload me-1"></i>Selecionar arquivo CSV
+      </div>
+      <div class="card-body p-4">
+        <form method="post" action="/admin/users/import" enctype="multipart/form-data">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Arquivo CSV <span class="text-danger">*</span></label>
+            <input type="file" name="file" class="form-control" accept=".csv" required>
+            <div class="form-text">Codificação UTF-8 recomendada. Tamanho máximo: 5 MB.</div>
+          </div>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-cloud-upload me-1"></i>Importar
+          </button>
+        </form>
+      </div>
+    </div>
+
+    {# ── Formato esperado ─────────────────────────────────────────────────── #}
+    <div class="card border-0 shadow-sm">
+      <div class="card-header py-2 fw-semibold small">
+        <i class="bi bi-info-circle me-1"></i>Formato do arquivo
+      </div>
+      <div class="card-body">
+        <p class="small mb-2">O arquivo deve conter as seguintes colunas (primeira linha = cabeçalho):</p>
+        <div class="table-responsive mb-3">
+          <table class="table table-sm table-bordered small mb-0">
+            <thead class="table-light">
+              <tr><th>Coluna</th><th>Obrigatório</th><th>Valores aceitos</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>name</code></td><td><span class="badge bg-danger">Sim</span></td><td>Nome completo</td></tr>
+              <tr><td><code>email</code></td><td><span class="badge bg-danger">Sim</span></td><td>E-mail único</td></tr>
+              <tr><td><code>password</code></td><td><span class="badge bg-danger">Sim</span></td><td>Senha inicial</td></tr>
+              <tr><td><code>role</code></td><td><span class="badge bg-danger">Sim</span></td><td><code>user</code> · <code>approver</code> · <code>admin</code></td></tr>
+              <tr><td><code>department</code></td><td><span class="badge bg-secondary">Não</span></td><td>Nome do departamento</td></tr>
+              <tr><td><code>approval_level</code></td><td><span class="badge bg-secondary">Não</span></td><td>Número do nível (apenas para <code>approver</code>)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="small fw-semibold mb-1">Exemplo:</p>
+        <pre class="bg-light rounded p-3 small mb-0" style="font-size:12px">name,email,password,role,department,approval_level
+João Silva,joao@empresa.com,Senha@123,user,Facilities,
+Maria Lima,maria@empresa.com,Senha@456,approver,Manutenção,1
+Pedro Souza,pedro@empresa.com,Senha@789,approver,Engenharia,2
+Ana Costa,ana@empresa.com,Admin@2024,admin,,</pre>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

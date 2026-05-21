@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional
-from fastapi import APIRouter, Request, Depends, Form, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Request, Depends, Form, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -97,15 +97,17 @@ def edit_user_form(
 
 
 @router.post("/users/{user_id}/edit")
-def update_user(
+async def update_user(
     user_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     name: str = Form(...),
     email: str = Form(...),
     role: str = Form(...),
     department: str = Form(""),
     is_active: Optional[str] = Form(None),
     new_password: str = Form(""),
+    send_password_email: Optional[str] = Form(None),
     approval_level: Optional[int] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
@@ -130,6 +132,9 @@ def update_user(
     user.approval_level = approval_level if Role(role) == Role.APPROVER else None
     if new_password:
         user.hashed_password = hash_password(new_password)
+        if send_password_email == "on":
+            from services.notifications import notify_password_changed
+            background_tasks.add_task(notify_password_changed, email, name, new_password)
 
     db.commit()
     add_audit(db, current_user.id, "user_updated", "user", user_id)
@@ -148,6 +153,119 @@ def toggle_active(
     user.is_active = not user.is_active
     db.commit()
     return RedirectResponse("/admin/users", status_code=302)
+
+
+@router.get("/users/import", response_class=HTMLResponse)
+def import_users_form(request: Request, current_user: User = Depends(require_admin)):
+    return templates.TemplateResponse(
+        "admin/user_import.html",
+        {"request": request, "current_user": current_user, "results": None},
+    )
+
+
+@router.post("/users/import", response_class=HTMLResponse)
+async def import_users_csv(
+    request: Request,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    import csv, io
+
+    results = {"created": [], "skipped": [], "errors": []}
+
+    if not file.filename or not file.filename.lower().endswith(".csv"):
+        results["errors"].append({"row": "—", "reason": "O arquivo deve ser um .csv"})
+        return templates.TemplateResponse(
+            "admin/user_import.html",
+            {"request": request, "current_user": current_user, "results": results},
+        )
+
+    content = await file.read()
+    try:
+        text = content.decode("utf-8-sig")  # strips BOM if present
+    except UnicodeDecodeError:
+        text = content.decode("latin-1")
+
+    reader = csv.DictReader(io.StringIO(text))
+    required = {"name", "email", "password", "role"}
+
+    if not reader.fieldnames or not required.issubset({f.strip().lower() for f in reader.fieldnames}):
+        results["errors"].append({
+            "row": "cabeçalho",
+            "reason": f"Colunas obrigatórias ausentes. Necessário: {', '.join(sorted(required))}",
+        })
+        return templates.TemplateResponse(
+            "admin/user_import.html",
+            {"request": request, "current_user": current_user, "results": results},
+        )
+
+    # normalize header keys to lowercase
+    normalized_rows = []
+    for row in reader:
+        normalized_rows.append({k.strip().lower(): (v or "").strip() for k, v in row.items()})
+
+    valid_roles = {r.value for r in Role}
+
+    for i, row in enumerate(normalized_rows, start=2):
+        row_label = f"linha {i}"
+        name = row.get("name", "")
+        email = row.get("email", "")
+        password = row.get("password", "")
+        role_val = row.get("role", "").lower()
+        department = row.get("department", "") or None
+        approval_level_raw = row.get("approval_level", "")
+
+        if not name or not email or not password or not role_val:
+            results["errors"].append({"row": row_label, "reason": f"Campos obrigatórios vazios (email: {email or '?'})"})
+            continue
+
+        if role_val not in valid_roles:
+            results["errors"].append({"row": row_label, "reason": f"Perfil inválido '{role_val}' para {email}. Use: user, approver, admin"})
+            continue
+
+        if db.query(User).filter(User.email == email).first():
+            results["skipped"].append({"email": email, "reason": "E-mail já cadastrado"})
+            continue
+
+        approval_level = None
+        if approval_level_raw:
+            try:
+                approval_level = int(approval_level_raw)
+            except ValueError:
+                results["errors"].append({"row": row_label, "reason": f"approval_level inválido '{approval_level_raw}' para {email}"})
+                continue
+
+        user = User(
+            name=name,
+            email=email,
+            hashed_password=hash_password(password),
+            role=Role(role_val),
+            department=department,
+            approval_level=approval_level if Role(role_val) == Role.APPROVER else None,
+        )
+        db.add(user)
+        try:
+            db.flush()
+            results["created"].append({"email": email, "name": name, "role": role_val})
+        except Exception as exc:
+            db.rollback()
+            results["errors"].append({"row": row_label, "reason": f"Erro ao salvar {email}: {exc}"})
+            continue
+
+    db.commit()
+    add_audit(
+        db, current_user.id, "users_imported", details={
+            "created": len(results["created"]),
+            "skipped": len(results["skipped"]),
+            "errors": len(results["errors"]),
+        }
+    )
+
+    return templates.TemplateResponse(
+        "admin/user_import.html",
+        {"request": request, "current_user": current_user, "results": results},
+    )
 
 
 @router.post("/tickets/{ticket_id}/delete")

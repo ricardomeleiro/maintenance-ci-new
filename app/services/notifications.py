@@ -28,7 +28,7 @@ STATUS_COLOR_HEX = {
 }
 
 # Statuses that trigger an e-mail to the requester
-NOTIFY_REQUESTER_ON = {"approved", "rejected", "completed"}
+NOTIFY_REQUESTER_ON = {"approved", "rejected", "completed", "in_progress"}
 
 
 # ── HTML helpers ─────────────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ def _row(label: str, value: str) -> str:
     )
 
 
-def _base_html(title: str, color: str, rows: str, link_url: str) -> str:
+def _base_html(title: str, color: str, rows: str, link_url: str, btn_text: str = "Ver chamado") -> str:
     return f"""<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,sans-serif">
@@ -62,7 +62,7 @@ def _base_html(title: str, color: str, rows: str, link_url: str) -> str:
         <a href="{link_url}"
            style="display:inline-block;background:#{color};color:#fff;padding:10px 24px;
                   border-radius:4px;text-decoration:none;font-weight:bold">
-          Ver chamado
+          {btn_text}
         </a>
       </td></tr>
       <tr><td style="background:#f8f9fa;padding:12px 32px;font-size:12px;color:#6c757d">
@@ -237,6 +237,12 @@ async def notify_requester_status_changed(
         if reason:
             rows += _row("Motivo da rejeição", reason)
 
+    elif new_status == "in_progress":
+        if getattr(ticket, "assignee", None):
+            rows += _row("Responsável pela execução", ticket.assignee.name)
+        if note:
+            rows += _row("Observação", note)
+
     elif new_status == "completed":
         if note:
             rows += _row("Observação de conclusão", note)
@@ -255,3 +261,22 @@ async def notify_status_changed(
     ticket, new_status: str, recipient_email: str, note: Optional[str] = None
 ) -> None:
     await notify_requester_status_changed(ticket, new_status, recipient_email, note)
+
+
+async def notify_password_changed(user_email: str, user_name: str, new_password: str) -> None:
+    """Send the new password to the user after an admin reset."""
+    subject = f"[{settings.APP_NAME}] Sua senha foi redefinida"
+    pw_cell = (
+        f'<code style="background:#f8f9fa;padding:3px 8px;border-radius:4px;'
+        f'font-family:monospace;font-size:15px;letter-spacing:1px">{new_password}</code>'
+    )
+    rows = (
+        _row("Nome", user_name)
+        + _row("E-mail de acesso", user_email)
+        + _row("Nova senha", pw_cell)
+    )
+    link = f"{settings.BASE_URL}/login"
+    html = _base_html(
+        "Redefinição de Senha", "6c757d", rows, link, btn_text="Acessar o sistema"
+    )
+    await _send_email(user_email, subject, html)
