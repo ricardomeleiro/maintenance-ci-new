@@ -74,11 +74,48 @@ def _base_html(title: str, color: str, rows: str, link_url: str) -> str:
 </body></html>"""
 
 
+# ── Email DB logging ──────────────────────────────────────────────────────────
+
+def _log_email_sync(
+    recipient: str,
+    subject: str,
+    status: str,
+    error_message: Optional[str] = None,
+    ticket_id: Optional[int] = None,
+) -> None:
+    from database import SessionLocal
+    from models.email_log import EmailLog
+    db = SessionLocal()
+    try:
+        db.add(EmailLog(
+            recipient=recipient,
+            subject=subject,
+            status=status,
+            error_message=error_message,
+            ticket_id=ticket_id,
+        ))
+        db.commit()
+    except Exception as exc:
+        logger.error("Failed to write email log: %s", exc)
+    finally:
+        db.close()
+
+
 # ── Transport ─────────────────────────────────────────────────────────────────
 
-async def _send_email(to: str, subject: str, html_body: str) -> None:
+async def _send_email(
+    to: str,
+    subject: str,
+    html_body: str,
+    ticket_id: Optional[int] = None,
+) -> None:
+    loop = asyncio.get_running_loop()
+
     if not settings.SMTP_HOST or not settings.SMTP_USER:
         logger.warning("SMTP not configured — skipping e-mail to %s", to)
+        await loop.run_in_executor(
+            None, _log_email_sync, to, subject, "skipped", "SMTP not configured", ticket_id
+        )
         return
 
     msg = MIMEMultipart("alternative")
@@ -97,8 +134,14 @@ async def _send_email(to: str, subject: str, html_body: str) -> None:
             start_tls=True,
         )
         logger.info("E-mail sent to %s — %s", to, subject)
+        await loop.run_in_executor(
+            None, _log_email_sync, to, subject, "sent", None, ticket_id
+        )
     except Exception as exc:
         logger.error("Failed to send e-mail to %s: %s", to, exc)
+        await loop.run_in_executor(
+            None, _log_email_sync, to, subject, "failed", str(exc), ticket_id
+        )
 
 
 async def _send_teams(title: str, message: str, color: str = "0078D4") -> None:
@@ -150,7 +193,7 @@ async def notify_ticket_created(ticket, creator_name: str, approver_emails: list
         f"Solicitante: {creator_name} | {category} | Prioridade: {priority}"
         + (f" | {ticket.location}" if ticket.location else "")
     )
-    tasks = [_send_email(e, subject, html) for e in approver_emails]
+    tasks = [_send_email(e, subject, html, ticket.id) for e in approver_emails]
     tasks.append(_send_teams(f"Novo Chamado #{ticket.id}", teams_text, color))
     await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -201,7 +244,7 @@ async def notify_requester_status_changed(
     html = _base_html(f"Chamado {label}", color, rows, link)
 
     await asyncio.gather(
-        _send_email(requester_email, subject, html),
+        _send_email(requester_email, subject, html, ticket.id),
         _send_teams(f"Chamado #{ticket.id} — {label}", f"{ticket.title}\n{note or ''}", color),
         return_exceptions=True,
     )

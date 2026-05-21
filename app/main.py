@@ -36,7 +36,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/login", status_code=302)
 
     if user.role == Role.ADMIN:
-        return RedirectResponse("/admin/reports", status_code=302)
+        return RedirectResponse("/admin/dashboard", status_code=302)
 
     if user.role == Role.APPROVER:
         pending = (

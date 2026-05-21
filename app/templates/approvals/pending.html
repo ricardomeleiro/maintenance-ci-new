@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Fila de Aprovações{% endblock %}
+{% block page_title %}Fila de Aprovações{% endblock %}
+
+{% block content %}
+{% if current_user.role.value == 'approver' and current_user.approval_level %}
+<div class="alert alert-info py-2 mb-3">
+  <i class="bi bi-info-circle me-1"></i>
+  Exibindo chamados aguardando aprovação <strong>N{{ current_user.approval_level }}</strong>.
+</div>
+{% endif %}
+
+{% if tickets %}
+<div class="card border-0 shadow-sm">
+  <div class="card-header bg-warning bg-opacity-10 d-flex align-items-center gap-2">
+    <i class="bi bi-hourglass-split text-warning"></i>
+    <span class="fw-semibold">{{ tickets | length }} chamado{{ 's' if tickets | length != 1 }} aguardando aprovação</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>#</th>
+            <th>Título</th>
+            <th>Solicitante</th>
+            <th>Categoria</th>
+            <th>Prioridade</th>
+            <th>Nível</th>
+            <th>Abertura</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in tickets %}
+          <tr>
+            <td class="text-muted small">{{ t.id }}</td>
+            <td>
+              <a href="/tickets/{{ t.id }}" class="text-decoration-none fw-semibold">{{ t.title }}</a>
+            </td>
+            <td>{{ t.creator.name }}</td>
+            <td class="small">{{ CATEGORY_LABELS[t.category] }}</td>
+            <td>
+              <span class="badge bg-{{ PRIORITY_COLORS[t.priority] }}">{{ PRIORITY_LABELS[t.priority] }}</span>
+            </td>
+            <td class="text-center">
+              {% if t.current_approval_level %}
+              <span class="badge bg-secondary">N{{ t.current_approval_level }}</span>
+              {% else %}—{% endif %}
+            </td>
+            <td class="text-muted small">{{ t.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+            <td>
+              <a href="/tickets/{{ t.id }}" class="btn btn-sm btn-primary">Analisar</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body text-center py-5">
+    <i class="bi bi-check-circle text-success" style="font-size:2.5rem"></i>
+    <p class="mt-3 mb-0 text-muted">Nenhum chamado aguardando aprovação no momento.</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

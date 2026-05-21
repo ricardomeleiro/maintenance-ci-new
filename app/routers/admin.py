@@ -13,6 +13,7 @@ from models.ticket import (
     STATUS_LABELS, STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS, CATEGORY_LABELS,
 )
 from models.audit import AuditLog
+from models.email_log import EmailLog
 from services.auth import hash_password
 
 router = APIRouter(prefix="/admin")
@@ -21,7 +22,7 @@ templates = Jinja2Templates(directory="templates")
 
 @router.get("", response_class=HTMLResponse)
 def admin_root(current_user: User = Depends(require_admin)):
-    return RedirectResponse("/admin/reports", status_code=302)
+    return RedirectResponse("/admin/dashboard", status_code=302)
 
 
 @router.get("/users", response_class=HTMLResponse)
@@ -197,16 +198,77 @@ def reports(
     )
 
 
-@router.get("/audit", response_class=HTMLResponse)
-def audit_log(
+@router.get("/dashboard", response_class=HTMLResponse)
+def admin_dashboard(
     request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
+    from models.ticket import TicketStatus
+
+    total = db.query(func.count(Ticket.id)).scalar() or 0
+    pending_review = db.query(func.count(Ticket.id)).filter(
+        Ticket.status == TicketStatus.UNDER_REVIEW
+    ).scalar() or 0
+    in_progress = db.query(func.count(Ticket.id)).filter(
+        Ticket.status == TicketStatus.IN_PROGRESS
+    ).scalar() or 0
+    completed = db.query(func.count(Ticket.id)).filter(
+        Ticket.status == TicketStatus.COMPLETED
+    ).scalar() or 0
+
+    pending_tickets = (
+        db.query(Ticket)
+        .filter(Ticket.status == TicketStatus.UNDER_REVIEW)
+        .order_by(Ticket.created_at.asc())
+        .limit(10)
+        .all()
+    )
+    recent_tickets = (
+        db.query(Ticket)
+        .order_by(Ticket.updated_at.desc())
+        .limit(10)
+        .all()
+    )
+
+    return templates.TemplateResponse(
+        "admin/dashboard.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "total": total,
+            "pending_review": pending_review,
+            "in_progress": in_progress,
+            "completed": completed,
+            "pending_tickets": pending_tickets,
+            "recent_tickets": recent_tickets,
+            "STATUS_LABELS": STATUS_LABELS,
+            "STATUS_COLORS": STATUS_COLORS,
+            "PRIORITY_LABELS": PRIORITY_LABELS,
+            "PRIORITY_COLORS": PRIORITY_COLORS,
+            "CATEGORY_LABELS": CATEGORY_LABELS,
+        },
+    )
+
+
+@router.get("/audit", response_class=HTMLResponse)
+def audit_log(
+    request: Request,
+    tab: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
     logs = db.query(AuditLog).order_by(AuditLog.created_at.desc()).limit(200).all()
+    email_logs = db.query(EmailLog).order_by(EmailLog.created_at.desc()).limit(200).all()
     return templates.TemplateResponse(
         "admin/audit_log.html",
-        {"request": request, "current_user": current_user, "logs": logs},
+        {
+            "request": request,
+            "current_user": current_user,
+            "logs": logs,
+            "email_logs": email_logs,
+            "active_tab": tab or "system",
+        },
     )
 
 

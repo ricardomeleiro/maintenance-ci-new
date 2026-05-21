@@ -21,11 +21,13 @@
     </div>
 
     <ul class="nav flex-column mt-2 flex-grow-1">
+      {% if not current_user or current_user.role.value != 'admin' %}
       <li class="nav-item">
         <a href="/dashboard" class="nav-link text-white {% if request.url.path == '/dashboard' %}active bg-primary rounded mx-2{% endif %}">
           <i class="bi bi-speedometer2 me-2"></i>Dashboard
         </a>
       </li>
+      {% endif %}
       <li class="nav-item">
         <a href="/tickets" class="nav-link text-white {% if '/tickets' in request.url.path %}active bg-primary rounded mx-2{% endif %}">
           <i class="bi bi-ticket-perforated me-2"></i>Chamados
@@ -33,13 +35,18 @@
       </li>
       {% if current_user and current_user.role.value in ('approver', 'admin') %}
       <li class="nav-item">
-        <a href="/tickets?status=open" class="nav-link text-white">
+        <a href="/approvals/pending" class="nav-link text-white {% if '/approvals/pending' in request.url.path %}active bg-primary rounded mx-2{% endif %}">
           <i class="bi bi-inbox me-2"></i>Aguardando Aprovação
         </a>
       </li>
       {% endif %}
       {% if current_user and current_user.role.value == 'admin' %}
       <hr class="border-secondary mx-3 my-1">
+      <li class="nav-item">
+        <a href="/admin/dashboard" class="nav-link text-white {% if '/admin/dashboard' in request.url.path %}active bg-primary rounded mx-2{% endif %}">
+          <i class="bi bi-speedometer2 me-2"></i>Painel Admin
+        </a>
+      </li>
       <li class="nav-item">
         <a href="/admin/reports" class="nav-link text-white {% if '/admin/reports' in request.url.path %}active bg-primary rounded mx-2{% endif %}">
           <i class="bi bi-bar-chart-line me-2"></i>Relatórios

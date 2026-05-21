@@ -3,6 +3,24 @@
 {% block page_title %}Log de Auditoria{% endblock %}
 
 {% block content %}
+<ul class="nav nav-tabs mb-3" id="auditTabs">
+  <li class="nav-item">
+    <a class="nav-link {% if active_tab == 'system' %}active{% endif %}"
+       href="/admin/audit?tab=system">
+      <i class="bi bi-journal-text me-1"></i>Ações do Sistema
+      <span class="badge bg-secondary ms-1">{{ logs | length }}</span>
+    </a>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link {% if active_tab == 'email' %}active{% endif %}"
+       href="/admin/audit?tab=email">
+      <i class="bi bi-envelope me-1"></i>Logs de E-mail
+      <span class="badge bg-secondary ms-1">{{ email_logs | length }}</span>
+    </a>
+  </li>
+</ul>
+
+{% if active_tab == 'system' %}
 <div class="card border-0 shadow-sm">
   <div class="card-body p-0">
     <div class="table-responsive">
@@ -42,4 +60,58 @@
     </div>
   </div>
 </div>
+
+{% else %}
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Data/Hora</th>
+            <th>Destinatário</th>
+            <th>Assunto</th>
+            <th>Status</th>
+            <th>Chamado</th>
+            <th>Detalhes do Erro</th>
+          </tr>
+        </thead>
+        <tbody class="small">
+          {% for log in email_logs %}
+          <tr>
+            <td class="text-muted">{{ log.created_at.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+            <td>{{ log.recipient }}</td>
+            <td class="text-muted">{{ log.subject or '—' }}</td>
+            <td>
+              {% if log.status == 'sent' %}
+              <span class="badge bg-success">Enviado</span>
+              {% elif log.status == 'failed' %}
+              <span class="badge bg-danger">Falha</span>
+              {% else %}
+              <span class="badge bg-secondary">Ignorado</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if log.ticket_id %}
+              <a href="/tickets/{{ log.ticket_id }}">#{{ log.ticket_id }}</a>
+              {% else %}—{% endif %}
+            </td>
+            <td>
+              {% if log.error_message %}
+              <span class="text-danger" title="{{ log.error_message }}">
+                {{ log.error_message | truncate(60) }}
+              </span>
+              {% else %}—{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          {% if not email_logs %}
+          <tr><td colspan="6" class="text-center text-muted py-4">Nenhum log de e-mail registrado.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

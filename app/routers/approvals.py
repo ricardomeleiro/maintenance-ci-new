@@ -1,15 +1,20 @@
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Request, Depends, Form, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from database import get_db
 from dependencies import require_approver, add_audit
 from models.user import User, Role
-from models.ticket import Ticket, TicketStatusHistory, TicketStatus, get_ticket_status_label
+from models.ticket import (
+    Ticket, TicketStatusHistory, TicketStatus, get_ticket_status_label,
+    STATUS_LABELS, STATUS_COLORS, PRIORITY_LABELS, PRIORITY_COLORS, CATEGORY_LABELS,
+)
 from models.settings import ApprovalConfig
 
 router = APIRouter(prefix="/approvals")
+templates = Jinja2Templates(directory="templates")
 
 
 def _get_config(db: Session) -> ApprovalConfig:
@@ -34,6 +39,34 @@ def _can_act_at_level(user: User, level: int) -> bool:
     if user.role == Role.ADMIN:
         return True
     return user.role == Role.APPROVER and user.approval_level == level
+
+
+# ── Fila de aprovações pendentes ─────────────────────────────────────────────
+@router.get("/pending", response_class=HTMLResponse)
+def pending_approvals(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_approver),
+):
+    query = db.query(Ticket).filter(Ticket.status == TicketStatus.UNDER_REVIEW)
+    if current_user.role == Role.APPROVER and current_user.approval_level:
+        query = query.filter(Ticket.current_approval_level == current_user.approval_level)
+
+    tickets = query.order_by(Ticket.created_at.asc()).all()
+
+    return templates.TemplateResponse(
+        "approvals/pending.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "tickets": tickets,
+            "STATUS_LABELS": STATUS_LABELS,
+            "STATUS_COLORS": STATUS_COLORS,
+            "PRIORITY_LABELS": PRIORITY_LABELS,
+            "PRIORITY_COLORS": PRIORITY_COLORS,
+            "CATEGORY_LABELS": CATEGORY_LABELS,
+        },
+    )
 
 
 # ── Submeter para aprovação (OPEN → UNDER_REVIEW, nível 1) ────────────────

@@ -8,3 +8,4 @@ from .ticket import (
 from .audit import AuditLog
 from .settings import ApprovalConfig
 from .attachment import TicketAttachment
+from .email_log import EmailLog
