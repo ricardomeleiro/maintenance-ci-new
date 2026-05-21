@@ -216,36 +216,25 @@
       <div class="card-header bg-white fw-semibold">Ações</div>
       <div class="card-body d-grid gap-2">
 
-        <!-- Submeter para aprovação N1 -->
-        {% if ticket.status.value == 'open' %}
-        <form method="post" action="/approvals/{{ ticket.id }}/submit">
-          <button class="btn btn-info btn-sm w-100 text-white">
-            <i class="bi bi-send me-1"></i>Enviar para Aprovação N1
-          </button>
-        </form>
-        {% endif %}
-
-        <!-- Aprovar no nível atual -->
-        {% if ticket.status.value == 'under_review' %}
+        <!-- Aprovar — disponível em OPEN (N1 implícito) e UNDER_REVIEW -->
+        {% if ticket.status.value in ('open', 'under_review') %}
+          {% set eff_level = ticket.current_approval_level or 1 %}
           {% set can_approve = (
             current_user.role.value == 'admin'
             or (current_user.role.value == 'approver' and (
               current_user.approval_level is none
-              or current_user.approval_level == ticket.current_approval_level
+              or current_user.approval_level == eff_level
             ))
           ) %}
           {% if can_approve %}
           <button class="btn btn-success btn-sm w-100" data-bs-toggle="modal" data-bs-target="#approveModal">
-            <i class="bi bi-check-lg me-1"></i>
-            Aprovar (N{{ ticket.current_approval_level }})
+            <i class="bi bi-check-lg me-1"></i>Aprovar (N{{ eff_level }})
           </button>
-          {% else %}
+          {% elif ticket.status.value == 'under_review' %}
           <div class="alert alert-secondary py-2 small mb-0 text-center">
             <i class="bi bi-hourglass me-1"></i>
-            Aguardando aprovação N{{ ticket.current_approval_level }}
-            {% if current_user.approval_level %}
-            — seu nível é N{{ current_user.approval_level }}
-            {% endif %}
+            Aguardando aprovação N{{ eff_level }}
+            {% if current_user.approval_level %}— seu nível é N{{ current_user.approval_level }}{% endif %}
           </div>
           {% endif %}
         {% endif %}
@@ -308,18 +297,19 @@
 </div>
 
 <!-- Modal: Aprovar -->
+{% set modal_level = ticket.current_approval_level or 1 %}
 <div class="modal fade" id="approveModal" tabindex="-1">
   <div class="modal-dialog">
     <form method="post" action="/approvals/{{ ticket.id }}/approve">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">
-            Aprovar — N{{ ticket.current_approval_level }}
-            {% if num_levels and ticket.current_approval_level %}
-              {% if ticket.current_approval_level >= num_levels %}
+            Aprovar — N{{ modal_level }}
+            {% if num_levels %}
+              {% if modal_level >= num_levels %}
                 <span class="badge bg-success ms-2">Aprovação final</span>
               {% else %}
-                <span class="badge bg-info text-dark ms-2">Avança para N{{ ticket.current_approval_level + 1 }}</span>
+                <span class="badge bg-info text-dark ms-2">Avança para N{{ modal_level + 1 }}</span>
               {% endif %}
             {% endif %}
           </h5>
@@ -331,7 +321,7 @@
             <textarea name="note" class="form-control" rows="3"
                       placeholder="Informações adicionais…"></textarea>
           </div>
-          {% if ticket.current_approval_level == num_levels %}
+          {% if modal_level >= num_levels %}
           <div class="mb-3">
             <label class="form-label small">Data agendada</label>
             <input type="date" name="scheduled_date" class="form-control">
@@ -421,10 +411,10 @@
           <div class="mb-3">
             <label class="form-label small">Arquivo</label>
             <input type="file" name="file" class="form-control" required
-                   accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv">
+                   accept=".jpg,.jpeg,.png,.gif,.webp,.mp4,.mov,.avi,.webm,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv">
           </div>
           <div class="text-muted small">
-            Tipos aceitos: imagens, PDF, Word, Excel, texto. Máximo: 20 MB.
+            Tipos aceitos: imagens, vídeos, PDF, Word, Excel, texto. Máximo: 100 MB.
           </div>
         </div>
         <div class="modal-footer">

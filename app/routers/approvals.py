@@ -103,7 +103,7 @@ async def submit_for_approval(
     return RedirectResponse(f"/tickets/{ticket_id}", status_code=302)
 
 
-# ── Aprovar no nível atual ─────────────────────────────────────────────────
+# ── Aprovar no nível atual (aceita OPEN → auto-submit implícito) ───────────
 @router.post("/{ticket_id}/approve")
 async def approve_ticket(
     ticket_id: int,
@@ -117,8 +117,19 @@ async def approve_ticket(
     ticket = _ticket_or_404(ticket_id, db)
     cfg = _get_config(db)
 
-    if ticket.status != TicketStatus.UNDER_REVIEW:
-        raise HTTPException(400, "Chamado não está em análise.")
+    if ticket.status == TicketStatus.OPEN:
+        # Implicitly submit before approving so history is complete
+        db.add(TicketStatusHistory(
+            ticket_id=ticket_id,
+            old_status=TicketStatus.OPEN,
+            new_status=TicketStatus.UNDER_REVIEW,
+            changed_by_id=current_user.id,
+            note="Chamado enviado para análise.",
+        ))
+        ticket.status = TicketStatus.UNDER_REVIEW
+        ticket.current_approval_level = 1
+    elif ticket.status != TicketStatus.UNDER_REVIEW:
+        raise HTTPException(400, "Chamado não está em status aprovável.")
 
     level = ticket.current_approval_level or 1
     if not _can_act_at_level(current_user, level):
@@ -162,7 +173,7 @@ async def approve_ticket(
         ticket, new_status.value, ticket.creator.email, history_note, ticket.scheduled_date,
     )
 
-    return RedirectResponse(f"/tickets/{ticket_id}", status_code=302)
+    return RedirectResponse("/tickets", status_code=302)
 
 
 # ── Rejeitar ──────────────────────────────────────────────────────────────
@@ -206,7 +217,7 @@ async def reject_ticket(
         ticket, "rejected", ticket.creator.email, rejection_reason,
     )
 
-    return RedirectResponse(f"/tickets/{ticket_id}", status_code=302)
+    return RedirectResponse("/tickets", status_code=302)
 
 
 # ── Ações de execução (Iniciar, Concluir) ─────────────────────────────────

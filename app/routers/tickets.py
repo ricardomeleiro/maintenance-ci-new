@@ -1,5 +1,6 @@
-from typing import Optional
-from fastapi import APIRouter, BackgroundTasks, Request, Depends, Form, HTTPException
+import os, uuid
+from typing import Optional, List
+from fastapi import APIRouter, BackgroundTasks, Request, Depends, Form, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -96,6 +97,7 @@ async def create_ticket(
     category: str = Form(...),
     priority: str = Form(...),
     location: str = Form(""),
+    files: List[UploadFile] = File(default=[]),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_login),
 ):
@@ -118,6 +120,32 @@ async def create_ticket(
         changed_by_id=current_user.id,
         note="Chamado criado.",
     ))
+
+    # Save any attached files uploaded at creation time
+    for file in files:
+        if not file.filename:
+            continue
+        contents = await file.read()
+        if not contents or len(contents) > MAX_SIZE:
+            continue
+        if file.content_type not in ALLOWED_TYPES:
+            continue
+        from models.attachment import TicketAttachment
+        dest_dir = os.path.join(UPLOAD_DIR, str(ticket.id))
+        os.makedirs(dest_dir, exist_ok=True)
+        ext = os.path.splitext(file.filename)[-1]
+        stored_name = f"{uuid.uuid4().hex}{ext}"
+        with open(os.path.join(dest_dir, stored_name), "wb") as f:
+            f.write(contents)
+        db.add(TicketAttachment(
+            ticket_id=ticket.id,
+            uploaded_by_id=current_user.id,
+            filename=file.filename,
+            stored_filename=stored_name,
+            file_size=len(contents),
+            mime_type=file.content_type,
+        ))
+
     db.commit()
     db.refresh(ticket)
 
@@ -226,13 +254,13 @@ def cancel_ticket(
 
 
 # ── Upload de anexo ────────────────────────────────────────────────────────
-import os, uuid, shutil
-from fastapi import UploadFile, File
+import shutil
 from fastapi.responses import FileResponse
 
 UPLOAD_DIR = "/app/uploads/tickets"
 ALLOWED_TYPES = {
     "image/jpeg", "image/png", "image/gif", "image/webp",
+    "video/mp4", "video/quicktime", "video/x-msvideo", "video/webm", "video/mpeg",
     "application/pdf",
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -240,7 +268,7 @@ ALLOWED_TYPES = {
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "text/plain", "text/csv",
 }
-MAX_SIZE = 20 * 1024 * 1024  # 20 MB
+MAX_SIZE = 100 * 1024 * 1024  # 100 MB
 
 
 @router.post("/{ticket_id}/upload")

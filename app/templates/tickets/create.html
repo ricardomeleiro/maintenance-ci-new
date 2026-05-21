@@ -11,7 +11,7 @@
         <div class="alert alert-danger">{{ error }}</div>
         {% endif %}
 
-        <form method="post" action="/tickets/new">
+        <form method="post" action="/tickets/new" enctype="multipart/form-data">
           <div class="mb-3">
             <label class="form-label fw-semibold">Título <span class="text-danger">*</span></label>
             <input type="text" name="title" class="form-control" maxlength="300"
@@ -46,10 +46,19 @@
                    placeholder="Ex: Bloco A, 3º andar, Sala 302">
           </div>
 
-          <div class="mb-4">
+          <div class="mb-3">
             <label class="form-label fw-semibold">Descrição detalhada <span class="text-danger">*</span></label>
             <textarea name="description" class="form-control" rows="5" required
                       placeholder="Descreva o problema com detalhes: o que acontece, desde quando, impactos observados..."></textarea>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Anexos <span class="text-muted fw-normal">(opcional)</span></label>
+            <input type="file" name="files" class="form-control" multiple
+                   accept=".jpg,.jpeg,.png,.gif,.webp,.mp4,.mov,.avi,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv">
+            <div class="form-text">
+              Fotos, vídeos ou documentos do problema. Múltiplos arquivos permitidos. Máximo 20 MB por arquivo.
+            </div>
           </div>
 
           <div class="d-flex gap-2">
