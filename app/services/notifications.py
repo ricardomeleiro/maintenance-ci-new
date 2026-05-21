@@ -263,6 +263,26 @@ async def notify_status_changed(
     await notify_requester_status_changed(ticket, new_status, recipient_email, note)
 
 
+async def notify_password_reset(user_email: str, user_name: str, reset_link: str) -> None:
+    """Send a password reset link to the user."""
+    subject = f"[{settings.APP_NAME}] Redefinição de senha"
+    rows = (
+        _row("Nome", user_name)
+        + _row("E-mail", user_email)
+        + _row(
+            "Instruções",
+            "Clique no botão abaixo para criar uma nova senha. "
+            "O link expira em <strong>1 hora</strong>. "
+            "Se você não solicitou a redefinição, ignore este e-mail.",
+        )
+    )
+    html = _base_html(
+        "Redefinição de Senha", "2563eb", rows, reset_link,
+        btn_text="Redefinir minha senha",
+    )
+    await _send_email(user_email, subject, html)
+
+
 async def notify_password_changed(user_email: str, user_name: str, new_password: str) -> None:
     """Send the new password to the user after an admin reset."""
     subject = f"[{settings.APP_NAME}] Sua senha foi redefinida"

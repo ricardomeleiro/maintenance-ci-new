@@ -9,3 +9,4 @@ from .audit import AuditLog
 from .settings import ApprovalConfig
 from .attachment import TicketAttachment
 from .email_log import EmailLog
+from .password_reset import PasswordResetToken
