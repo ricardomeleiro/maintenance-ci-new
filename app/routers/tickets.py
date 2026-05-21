@@ -1,6 +1,5 @@
-import asyncio
 from typing import Optional
-from fastapi import APIRouter, Request, Depends, Form, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Request, Depends, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -91,6 +90,7 @@ def create_form(request: Request, current_user: User = Depends(require_login)):
 @router.post("/new")
 async def create_ticket(
     request: Request,
+    background_tasks: BackgroundTasks,
     title: str = Form(...),
     description: str = Form(...),
     category: str = Form(...),
@@ -129,7 +129,7 @@ async def create_ticket(
         ).all()
     ]
     from services.notifications import notify_ticket_created
-    asyncio.create_task(notify_ticket_created(ticket, current_user.name, approver_emails))
+    background_tasks.add_task(notify_ticket_created, ticket, current_user.name, approver_emails)
 
     return RedirectResponse(f"/tickets/{ticket.id}", status_code=302)
 

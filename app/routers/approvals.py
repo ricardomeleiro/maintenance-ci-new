@@ -1,7 +1,6 @@
-import asyncio
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Request, Depends, Form, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Request, Depends, Form, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from database import get_db
@@ -69,6 +68,7 @@ async def submit_for_approval(
 @router.post("/{ticket_id}/approve")
 async def approve_ticket(
     ticket_id: int,
+    background_tasks: BackgroundTasks,
     note: Optional[str] = Form(None),
     scheduled_date: Optional[str] = Form(None),
     assigned_to_id: Optional[int] = Form(None),
@@ -117,9 +117,10 @@ async def approve_ticket(
 
     add_audit(db, current_user.id, f"ticket_approved_n{level}", "ticket", ticket_id)
 
-    from services.notifications import notify_status_changed
-    asyncio.create_task(
-        notify_status_changed(ticket, new_status.value, ticket.creator.email, history_note)
+    from services.notifications import notify_requester_status_changed
+    background_tasks.add_task(
+        notify_requester_status_changed,
+        ticket, new_status.value, ticket.creator.email, history_note, ticket.scheduled_date,
     )
 
     return RedirectResponse(f"/tickets/{ticket_id}", status_code=302)
@@ -129,6 +130,7 @@ async def approve_ticket(
 @router.post("/{ticket_id}/reject")
 async def reject_ticket(
     ticket_id: int,
+    background_tasks: BackgroundTasks,
     rejection_reason: str = Form(...),
     note: Optional[str] = Form(None),
     db: Session = Depends(get_db),
@@ -159,9 +161,10 @@ async def reject_ticket(
 
     add_audit(db, current_user.id, "ticket_rejected", "ticket", ticket_id)
 
-    from services.notifications import notify_status_changed
-    asyncio.create_task(
-        notify_status_changed(ticket, "rejected", ticket.creator.email, rejection_reason)
+    from services.notifications import notify_requester_status_changed
+    background_tasks.add_task(
+        notify_requester_status_changed,
+        ticket, "rejected", ticket.creator.email, rejection_reason,
     )
 
     return RedirectResponse(f"/tickets/{ticket_id}", status_code=302)
