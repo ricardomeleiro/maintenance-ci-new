@@ -10,49 +10,95 @@
 
 {% block content %}
 <div class="row g-4">
-  <!-- Main info -->
+
+  <!-- Coluna principal -->
   <div class="col-lg-8">
+
+    <!-- Cabeçalho do chamado -->
     <div class="card border-0 shadow-sm mb-4">
       <div class="card-header bg-white d-flex justify-content-between align-items-center">
         <h5 class="mb-0">{{ ticket.title }}</h5>
         <span class="badge bg-{{ STATUS_COLORS[ticket.status] }} fs-6">
-          {{ STATUS_LABELS[ticket.status] }}
+          {{ ticket.status_label }}
         </span>
       </div>
       <div class="card-body">
         <p class="text-body">{{ ticket.description }}</p>
         {% if ticket.status.value == 'rejected' and ticket.rejection_reason %}
         <div class="alert alert-danger mt-3">
-          <strong><i class="bi bi-x-circle me-1"></i>Motivo da rejeição:</strong> {{ ticket.rejection_reason }}
+          <strong><i class="bi bi-x-circle me-1"></i>Motivo da rejeição:</strong>
+          {{ ticket.rejection_reason }}
         </div>
         {% endif %}
       </div>
     </div>
 
-    <!-- Timeline -->
+    <!-- Anexos -->
     <div class="card border-0 shadow-sm mb-4">
-      <div class="card-header bg-white"><span class="fw-semibold">Histórico</span></div>
-      <div class="card-body">
-        <div class="timeline">
-          {% for h in ticket.status_history %}
-          <div class="d-flex gap-3 mb-3">
-            <div class="flex-shrink-0">
-              <span class="badge bg-{{ STATUS_COLORS[h.new_status] }} rounded-pill">&nbsp;</span>
-            </div>
-            <div>
-              <div class="fw-semibold">{{ STATUS_LABELS[h.new_status] }}</div>
-              <div class="small text-muted">
-                {{ h.changed_by.name }} — {{ h.created_at.strftime('%d/%m/%Y %H:%M') }}
+      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span class="fw-semibold"><i class="bi bi-paperclip me-1"></i>Anexos</span>
+        {% if ticket.status.value not in ('completed', 'cancelled', 'rejected') %}
+        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+          <i class="bi bi-upload me-1"></i>Enviar arquivo
+        </button>
+        {% endif %}
+      </div>
+      <div class="card-body {% if not ticket.attachments %}py-3{% endif %}">
+        {% if ticket.attachments %}
+        <div class="list-group list-group-flush">
+          {% for att in ticket.attachments %}
+          <a href="{{ att.url }}" target="_blank"
+             class="list-group-item list-group-item-action d-flex align-items-center gap-3 py-2 px-0">
+            {% if att.mime_type and att.mime_type.startswith('image') %}
+              <i class="bi bi-file-image text-info fs-5"></i>
+            {% elif att.mime_type == 'application/pdf' %}
+              <i class="bi bi-file-pdf text-danger fs-5"></i>
+            {% elif 'word' in (att.mime_type or '') %}
+              <i class="bi bi-file-word text-primary fs-5"></i>
+            {% elif 'excel' in (att.mime_type or '') or 'sheet' in (att.mime_type or '') %}
+              <i class="bi bi-file-excel text-success fs-5"></i>
+            {% else %}
+              <i class="bi bi-file-earmark fs-5 text-secondary"></i>
+            {% endif %}
+            <div class="flex-grow-1">
+              <div class="fw-semibold small">{{ att.filename }}</div>
+              <div class="text-muted" style="font-size:.75rem">
+                {{ att.uploaded_by.name }} · {{ att.created_at.strftime('%d/%m/%Y %H:%M') }}
+                {% if att.file_size %} · {{ att.size_human }}{% endif %}
               </div>
-              {% if h.note %}<div class="small mt-1">{{ h.note }}</div>{% endif %}
             </div>
-          </div>
+            <i class="bi bi-download text-muted"></i>
+          </a>
           {% endfor %}
         </div>
+        {% else %}
+        <p class="text-muted small mb-0">Nenhum anexo ainda.</p>
+        {% endif %}
       </div>
     </div>
 
-    <!-- Comments -->
+    <!-- Histórico -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white"><span class="fw-semibold">Histórico</span></div>
+      <div class="card-body">
+        {% for h in ticket.status_history %}
+        <div class="d-flex gap-3 mb-3">
+          <div class="flex-shrink-0">
+            <span class="badge bg-{{ STATUS_COLORS[h.new_status] }} rounded-pill">&nbsp;</span>
+          </div>
+          <div>
+            <div class="fw-semibold">{{ STATUS_LABELS[h.new_status] }}</div>
+            <div class="small text-muted">
+              {{ h.changed_by.name }} — {{ h.created_at.strftime('%d/%m/%Y %H:%M') }}
+            </div>
+            {% if h.note %}<div class="small mt-1 text-muted">{{ h.note }}</div>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Comentários -->
     <div class="card border-0 shadow-sm" id="comments">
       <div class="card-header bg-white"><span class="fw-semibold">Comentários</span></div>
       <div class="card-body">
@@ -78,19 +124,23 @@
           </div>
           {% endfor %}
         {% else %}
-          <p class="text-muted">Nenhum comentário ainda.</p>
+          <p class="text-muted small">Nenhum comentário ainda.</p>
         {% endif %}
 
         {% if ticket.status.value not in ('completed', 'cancelled', 'rejected') %}
         <hr>
         <form method="post" action="/tickets/{{ ticket.id }}/comment">
           <div class="mb-2">
-            <textarea name="content" class="form-control" rows="3" placeholder="Adicionar comentário..." required></textarea>
+            <textarea name="content" class="form-control" rows="3"
+                      placeholder="Adicionar comentário…" required></textarea>
           </div>
           {% if current_user.role.value in ('approver', 'admin') %}
           <div class="form-check mb-2">
-            <input type="checkbox" class="form-check-input" id="is_internal" name="is_internal" value="on">
-            <label class="form-check-label small" for="is_internal">Nota interna (visível apenas para aprovadores e admins)</label>
+            <input type="checkbox" class="form-check-input" id="is_internal"
+                   name="is_internal" value="on">
+            <label class="form-check-label small" for="is_internal">
+              Nota interna (visível apenas para aprovadores e admins)
+            </label>
           </div>
           {% endif %}
           <button type="submit" class="btn btn-sm btn-outline-primary">
@@ -102,14 +152,18 @@
     </div>
   </div>
 
-  <!-- Sidebar info + actions -->
+  <!-- Sidebar -->
   <div class="col-lg-4">
+
+    <!-- Info do chamado -->
     <div class="card border-0 shadow-sm mb-3">
       <div class="card-body">
         <dl class="row mb-0">
           <dt class="col-5 text-muted small">Prioridade</dt>
           <dd class="col-7">
-            <span class="badge bg-{{ PRIORITY_COLORS[ticket.priority] }}">{{ PRIORITY_LABELS[ticket.priority] }}</span>
+            <span class="badge bg-{{ PRIORITY_COLORS[ticket.priority] }}">
+              {{ PRIORITY_LABELS[ticket.priority] }}
+            </span>
           </dd>
           <dt class="col-5 text-muted small">Categoria</dt>
           <dd class="col-7">{{ CATEGORY_LABELS[ticket.category] }}</dd>
@@ -117,6 +171,12 @@
           <dd class="col-7">{{ ticket.location or '—' }}</dd>
           <dt class="col-5 text-muted small">Solicitante</dt>
           <dd class="col-7">{{ ticket.creator.name }}</dd>
+          {% if ticket.status.value == 'under_review' and ticket.current_approval_level %}
+          <dt class="col-5 text-muted small">Aguardando</dt>
+          <dd class="col-7">
+            <span class="badge bg-info text-dark">N{{ ticket.current_approval_level }}</span>
+          </dd>
+          {% endif %}
           {% if ticket.approver_user %}
           <dt class="col-5 text-muted small">Aprovado por</dt>
           <dd class="col-7">{{ ticket.approver_user.name }}</dd>
@@ -132,74 +192,74 @@
           <dt class="col-5 text-muted small">Criado em</dt>
           <dd class="col-7">{{ ticket.created_at.strftime('%d/%m/%Y %H:%M') }}</dd>
           {% if ticket.completed_at %}
-          <dt class="col-5 text-muted small">Concluído em</dt>
+          <dt class="col-5 text-muted small">Concluído</dt>
           <dd class="col-7">{{ ticket.completed_at.strftime('%d/%m/%Y') }}</dd>
           {% endif %}
         </dl>
       </div>
     </div>
 
-    <!-- Approver / Admin actions -->
-    {% if current_user.role.value in ('approver', 'admin') and ticket.status.value not in ('completed', 'cancelled', 'rejected') %}
+    <!-- Ações do aprovador / admin -->
+    {% if current_user.role.value in ('approver', 'admin')
+       and ticket.status.value not in ('completed', 'cancelled', 'rejected') %}
     <div class="card border-0 shadow-sm mb-3">
       <div class="card-header bg-white fw-semibold">Ações</div>
-      <div class="card-body">
-        <!-- Move to Under Review -->
+      <div class="card-body d-grid gap-2">
+
+        <!-- Submeter para aprovação N1 -->
         {% if ticket.status.value == 'open' %}
-        <form method="post" action="/approvals/{{ ticket.id }}/update-status" class="mb-2">
-          <input type="hidden" name="new_status" value="under_review">
-          <button class="btn btn-info btn-sm w-100">
-            <i class="bi bi-eye me-1"></i>Iniciar Análise
+        <form method="post" action="/approvals/{{ ticket.id }}/submit">
+          <button class="btn btn-info btn-sm w-100 text-white">
+            <i class="bi bi-send me-1"></i>Enviar para Aprovação N1
           </button>
         </form>
         {% endif %}
 
-        <!-- Approve -->
-        {% if ticket.status.value in ('open', 'under_review') %}
-        <button class="btn btn-success btn-sm w-100 mb-2" data-bs-toggle="modal" data-bs-target="#approveModal">
-          <i class="bi bi-check-lg me-1"></i>Aprovar
-        </button>
+        <!-- Aprovar no nível atual -->
+        {% if ticket.status.value == 'under_review' %}
+          {% set can_approve = current_user.role.value == 'admin'
+             or (current_user.approval_level == ticket.current_approval_level) %}
+          {% if can_approve %}
+          <button class="btn btn-success btn-sm w-100" data-bs-toggle="modal" data-bs-target="#approveModal">
+            <i class="bi bi-check-lg me-1"></i>
+            Aprovar (N{{ ticket.current_approval_level }})
+          </button>
+          {% else %}
+          <div class="alert alert-secondary py-2 small mb-0 text-center">
+            Este chamado aguarda aprovação N{{ ticket.current_approval_level }}.
+          </div>
+          {% endif %}
         {% endif %}
 
-        <!-- Mark in progress -->
+        <!-- Iniciar execução -->
         {% if ticket.status.value == 'approved' %}
-        <form method="post" action="/approvals/{{ ticket.id }}/update-status" class="mb-2">
-          <input type="hidden" name="new_status" value="in_progress">
+        <form method="post" action="/approvals/{{ ticket.id }}/start">
           <button class="btn btn-warning btn-sm w-100">
             <i class="bi bi-tools me-1"></i>Iniciar Execução
           </button>
         </form>
         {% endif %}
 
-        <!-- Complete -->
+        <!-- Concluir -->
         {% if ticket.status.value == 'in_progress' %}
-        <form method="post" action="/approvals/{{ ticket.id }}/update-status" class="mb-2">
-          <input type="hidden" name="new_status" value="completed">
-          <div class="mb-2">
-            <textarea name="note" class="form-control form-control-sm" rows="2"
-                      placeholder="Observações de conclusão (opcional)"></textarea>
-          </div>
-          <button class="btn btn-success btn-sm w-100">
-            <i class="bi bi-check2-all me-1"></i>Marcar como Concluído
-          </button>
-        </form>
+        <button class="btn btn-success btn-sm w-100" data-bs-toggle="modal" data-bs-target="#completeModal">
+          <i class="bi bi-check2-all me-1"></i>Marcar como Concluído
+        </button>
         {% endif %}
 
-        <!-- Reject -->
-        {% if ticket.status.value not in ('completed', 'rejected') %}
+        <!-- Rejeitar -->
         <button class="btn btn-danger btn-sm w-100" data-bs-toggle="modal" data-bs-target="#rejectModal">
           <i class="bi bi-x-lg me-1"></i>Rejeitar
         </button>
-        {% endif %}
       </div>
     </div>
     {% endif %}
 
-    <!-- User cancel -->
+    <!-- Cancelar (usuário) -->
     {% if current_user.role.value == 'user' and ticket.created_by_id == current_user.id
-         and ticket.status.value in ('open', 'under_review') %}
+         and ticket.status.value in ('open',) %}
     <form method="post" action="/tickets/{{ ticket.id }}/cancel"
-          onsubmit="return confirm('Tem certeza que deseja cancelar este chamado?')">
+          onsubmit="return confirm('Cancelar este chamado?')">
       <button class="btn btn-outline-danger btn-sm w-100">
         <i class="bi bi-x-circle me-1"></i>Cancelar Chamado
       </button>
@@ -208,29 +268,40 @@
   </div>
 </div>
 
-<!-- Approve Modal -->
+<!-- Modal: Aprovar -->
 <div class="modal fade" id="approveModal" tabindex="-1">
   <div class="modal-dialog">
-    <form method="post" action="/approvals/{{ ticket.id }}/update-status">
-      <input type="hidden" name="new_status" value="approved">
+    <form method="post" action="/approvals/{{ ticket.id }}/approve">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">Aprovar Chamado</h5>
+          <h5 class="modal-title">
+            Aprovar — N{{ ticket.current_approval_level }}
+            {% if num_levels and ticket.current_approval_level %}
+              {% if ticket.current_approval_level >= num_levels %}
+                <span class="badge bg-success ms-2">Aprovação final</span>
+              {% else %}
+                <span class="badge bg-info text-dark ms-2">Avança para N{{ ticket.current_approval_level + 1 }}</span>
+              {% endif %}
+            {% endif %}
+          </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
           <div class="mb-3">
             <label class="form-label small">Observação</label>
-            <textarea name="note" class="form-control" rows="3" placeholder="Informações adicionais..."></textarea>
+            <textarea name="note" class="form-control" rows="3"
+                      placeholder="Informações adicionais…"></textarea>
           </div>
+          {% if ticket.current_approval_level == num_levels %}
           <div class="mb-3">
             <label class="form-label small">Data agendada</label>
             <input type="date" name="scheduled_date" class="form-control">
           </div>
+          {% endif %}
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-success">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success btn-sm">
             <i class="bi bi-check-lg me-1"></i>Confirmar Aprovação
           </button>
         </div>
@@ -239,11 +310,42 @@
   </div>
 </div>
 
-<!-- Reject Modal -->
+<!-- Modal: Concluir -->
+<div class="modal fade" id="completeModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="post" action="/approvals/{{ ticket.id }}/complete">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Concluir Chamado</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label small">Observações de conclusão</label>
+            <textarea name="note" class="form-control" rows="3"
+                      placeholder="Descreva o serviço realizado…"></textarea>
+          </div>
+          <div class="alert alert-info small py-2">
+            <i class="bi bi-paperclip me-1"></i>
+            Você pode também <strong>anexar fotos ou documentos</strong> do serviço realizado
+            na seção de Anexos após concluir.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success btn-sm">
+            <i class="bi bi-check2-all me-1"></i>Confirmar Conclusão
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Rejeitar -->
 <div class="modal fade" id="rejectModal" tabindex="-1">
   <div class="modal-dialog">
-    <form method="post" action="/approvals/{{ ticket.id }}/update-status">
-      <input type="hidden" name="new_status" value="rejected">
+    <form method="post" action="/approvals/{{ ticket.id }}/reject">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">Rejeitar Chamado</h5>
@@ -253,13 +355,43 @@
           <div class="mb-3">
             <label class="form-label small">Motivo da rejeição <span class="text-danger">*</span></label>
             <textarea name="rejection_reason" class="form-control" rows="3" required
-                      placeholder="Explique o motivo da rejeição..."></textarea>
+                      placeholder="Explique o motivo da rejeição…"></textarea>
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-danger">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-danger btn-sm">
             <i class="bi bi-x-lg me-1"></i>Confirmar Rejeição
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Upload -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="post" action="/tickets/{{ ticket.id }}/upload" enctype="multipart/form-data">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-paperclip me-1"></i>Enviar Anexo</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label small">Arquivo</label>
+            <input type="file" name="file" class="form-control" required
+                   accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt,.csv">
+          </div>
+          <div class="text-muted small">
+            Tipos aceitos: imagens, PDF, Word, Excel, texto. Máximo: 20 MB.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-upload me-1"></i>Enviar
           </button>
         </div>
       </div>

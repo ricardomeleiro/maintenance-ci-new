@@ -27,6 +27,8 @@ class User(Base):
     hashed_password = Column(String(200), nullable=False)
     role = Column(Enum(Role), default=Role.USER, nullable=False)
     department = Column(String(200))
+    # Para aprovadores: nível de aprovação que este usuário executa (1, 2, 3…)
+    approval_level = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())

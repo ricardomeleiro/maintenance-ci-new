@@ -55,6 +55,7 @@ def create_user(
     password: str = Form(...),
     role: str = Form(...),
     department: str = Form(""),
+    approval_level: Optional[int] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
@@ -69,6 +70,7 @@ def create_user(
         hashed_password=hash_password(password),
         role=Role(role),
         department=department or None,
+        approval_level=approval_level if Role(role) == Role.APPROVER else None,
     )
     db.add(user)
     db.commit()
@@ -103,6 +105,7 @@ def update_user(
     department: str = Form(""),
     is_active: Optional[str] = Form(None),
     new_password: str = Form(""),
+    approval_level: Optional[int] = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
@@ -123,6 +126,7 @@ def update_user(
     user.role = Role(role)
     user.department = department or None
     user.is_active = is_active == "on"
+    user.approval_level = approval_level if Role(role) == Role.APPROVER else None
     if new_password:
         user.hashed_password = hash_password(new_password)
 
@@ -204,3 +208,68 @@ def audit_log(
         "admin/audit_log.html",
         {"request": request, "current_user": current_user, "logs": logs},
     )
+
+
+# ── Configurações de aprovação ─────────────────────────────────────────────
+@router.get("/settings", response_class=HTMLResponse)
+def approval_settings(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    from models.settings import ApprovalConfig
+    cfg = db.query(ApprovalConfig).first()
+    if not cfg:
+        cfg = ApprovalConfig(num_levels=2)
+        db.add(cfg); db.commit(); db.refresh(cfg)
+
+    approvers = db.query(User).filter(User.role == Role.APPROVER, User.is_active == True).all()
+    return templates.TemplateResponse(
+        "admin/approval_settings.html",
+        {
+            "request": request,
+            "current_user": current_user,
+            "cfg": cfg,
+            "approvers": approvers,
+            "range": range,
+        },
+    )
+
+
+@router.post("/settings")
+def save_approval_settings(
+    request: Request,
+    num_levels: int = Form(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    from models.settings import ApprovalConfig
+    if num_levels < 1 or num_levels > 10:
+        raise HTTPException(400, "Número de níveis deve estar entre 1 e 10.")
+
+    cfg = db.query(ApprovalConfig).first()
+    if not cfg:
+        cfg = ApprovalConfig()
+        db.add(cfg)
+    cfg.num_levels = num_levels
+    cfg.updated_by_id = current_user.id
+    db.commit()
+    add_audit(db, current_user.id, "approval_config_updated", details={"num_levels": num_levels})
+    return RedirectResponse("/admin/settings", status_code=302)
+
+
+@router.post("/settings/assign-level")
+def assign_approver_level(
+    user_id: int = Form(...),
+    approval_level: int = Form(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or user.role != Role.APPROVER:
+        raise HTTPException(400, "Usuário inválido ou não é aprovador.")
+    user.approval_level = approval_level
+    db.commit()
+    add_audit(db, current_user.id, "approver_level_assigned",
+              "user", user_id, {"level": approval_level})
+    return RedirectResponse("/admin/settings", status_code=302)

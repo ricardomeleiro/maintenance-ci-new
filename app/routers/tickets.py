@@ -150,6 +150,10 @@ def ticket_detail(
     if current_user.role == Role.USER:
         comments = [c for c in comments if not c.is_internal]
 
+    from models.settings import ApprovalConfig
+    cfg = db.query(ApprovalConfig).first()
+    num_levels = cfg.num_levels if cfg else 2
+
     return templates.TemplateResponse(
         "tickets/detail.html",
         {
@@ -164,6 +168,7 @@ def ticket_detail(
             "CATEGORY_LABELS": CATEGORY_LABELS,
             "TicketStatus": TicketStatus,
             "Role": Role,
+            "num_levels": num_levels,
         },
     )
 
@@ -218,3 +223,97 @@ def cancel_ticket(
     ))
     db.commit()
     return RedirectResponse(f"/tickets/{ticket_id}", status_code=302)
+
+
+# ── Upload de anexo ────────────────────────────────────────────────────────
+import os, uuid, shutil
+from fastapi import UploadFile, File
+from fastapi.responses import FileResponse
+
+UPLOAD_DIR = "/app/uploads/tickets"
+ALLOWED_TYPES = {
+    "image/jpeg", "image/png", "image/gif", "image/webp",
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/plain", "text/csv",
+}
+MAX_SIZE = 20 * 1024 * 1024  # 20 MB
+
+
+@router.post("/{ticket_id}/upload")
+async def upload_attachment(
+    ticket_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_login),
+):
+    from models.attachment import TicketAttachment
+
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(404)
+    if current_user.role == Role.USER and ticket.created_by_id != current_user.id:
+        raise HTTPException(403)
+    if ticket.status in (TicketStatus.COMPLETED, TicketStatus.CANCELLED, TicketStatus.REJECTED):
+        raise HTTPException(400, "Não é possível anexar arquivos neste status.")
+
+    if file.content_type not in ALLOWED_TYPES:
+        raise HTTPException(400, "Tipo de arquivo não permitido.")
+
+    contents = await file.read()
+    if len(contents) > MAX_SIZE:
+        raise HTTPException(400, "Arquivo muito grande. Máximo: 20 MB.")
+
+    dest_dir = os.path.join(UPLOAD_DIR, str(ticket_id))
+    os.makedirs(dest_dir, exist_ok=True)
+
+    ext = os.path.splitext(file.filename or "")[-1]
+    stored_name = f"{uuid.uuid4().hex}{ext}"
+    dest_path = os.path.join(dest_dir, stored_name)
+    with open(dest_path, "wb") as f:
+        f.write(contents)
+
+    attachment = TicketAttachment(
+        ticket_id=ticket_id,
+        uploaded_by_id=current_user.id,
+        filename=file.filename,
+        stored_filename=stored_name,
+        file_size=len(contents),
+        mime_type=file.content_type,
+    )
+    db.add(attachment)
+    db.commit()
+
+    add_audit(db, current_user.id, "attachment_uploaded", "ticket", ticket_id,
+              {"filename": file.filename})
+    return RedirectResponse(f"/tickets/{ticket_id}", status_code=302)
+
+
+@router.get("/{ticket_id}/attachments/{stored_filename}")
+def download_attachment(
+    ticket_id: int,
+    stored_filename: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_login),
+):
+    from models.attachment import TicketAttachment
+
+    att = db.query(TicketAttachment).filter(
+        TicketAttachment.ticket_id == ticket_id,
+        TicketAttachment.stored_filename == stored_filename,
+    ).first()
+    if not att:
+        raise HTTPException(404)
+
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if current_user.role == Role.USER and ticket.created_by_id != current_user.id:
+        raise HTTPException(403)
+
+    file_path = os.path.join(UPLOAD_DIR, str(ticket_id), stored_filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(404, "Arquivo não encontrado.")
+
+    return FileResponse(file_path, filename=att.filename, media_type=att.mime_type)

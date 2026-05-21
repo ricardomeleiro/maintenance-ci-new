@@ -9,9 +9,11 @@ def init():
     db = SessionLocal()
     try:
         from models.user import User, Role
+        from models.settings import ApprovalConfig
         from services.auth import hash_password
         from config import settings
 
+        # Seed admin
         if not db.query(User).filter(User.role == Role.ADMIN).first():
             admin = User(
                 name=settings.ADMIN_NAME,
@@ -25,6 +27,13 @@ def init():
             print(f"[init_db] Admin created: {settings.ADMIN_EMAIL}")
         else:
             print("[init_db] Admin already exists, skipping seed.")
+
+        # Seed ApprovalConfig (padrão: 2 níveis)
+        if not db.query(ApprovalConfig).first():
+            db.add(ApprovalConfig(num_levels=2))
+            db.commit()
+            print("[init_db] ApprovalConfig created with 2 levels.")
+
     finally:
         db.close()
 

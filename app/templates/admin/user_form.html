@@ -24,13 +24,26 @@
           </div>
           <div class="mb-3">
             <label class="form-label">Perfil</label>
-            <select name="role" class="form-select" required>
+            <select name="role" class="form-select" required id="role-select" onchange="toggleLevelField()">
               {% for r in Role %}
               <option value="{{ r.value }}" {% if editing and editing.role == r %}selected{% endif %}>
                 {{ ROLE_LABELS[r] }}
               </option>
               {% endfor %}
             </select>
+          </div>
+          <div class="mb-3" id="level-field" style="display:none">
+            <label class="form-label">Nível de aprovação</label>
+            <select name="approval_level" class="form-select">
+              <option value="">Sem nível atribuído</option>
+              {% for n in range(1, 11) %}
+              <option value="{{ n }}"
+                {% if editing and editing.approval_level == n %}selected{% endif %}>
+                N{{ n }}
+              </option>
+              {% endfor %}
+            </select>
+            <div class="form-text">Define em qual nível de aprovação este usuário atua.</div>
           </div>
           <div class="mb-3">
             <label class="form-label">Departamento</label>
@@ -52,6 +65,14 @@
           </div>
           {% endif %}
 
+          <script>
+          function toggleLevelField() {
+            var role = document.getElementById("role-select").value;
+            document.getElementById("level-field").style.display =
+              role === "approver" ? "block" : "none";
+          }
+          toggleLevelField();
+          </script>
           <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-save me-1"></i>Salvar

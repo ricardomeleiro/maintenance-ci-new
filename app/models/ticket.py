@@ -77,6 +77,14 @@ CATEGORY_LABELS = {
 }
 
 
+def get_ticket_status_label(ticket) -> str:
+    """Retorna o label correto considerando nível de aprovação."""
+    if (ticket.status == TicketStatus.UNDER_REVIEW
+            and ticket.current_approval_level is not None):
+        return f"Aguardando Aprovação N{ticket.current_approval_level}"
+    return STATUS_LABELS.get(ticket.status, ticket.status.value)
+
+
 class Ticket(Base):
     __tablename__ = "tickets"
 
@@ -93,6 +101,9 @@ class Ticket(Base):
     approved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     rejection_reason = Column(Text)
 
+    # Nível de aprovação atual (1 = N1, 2 = N2, …); null quando não está em análise
+    current_approval_level = Column(Integer, nullable=True)
+
     scheduled_date = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=func.now(), index=True)
@@ -107,12 +118,19 @@ class Ticket(Base):
     status_history = relationship(
         "TicketStatusHistory", back_populates="ticket", order_by="TicketStatusHistory.created_at"
     )
+    attachments = relationship(
+        "TicketAttachment", back_populates="ticket", order_by="TicketAttachment.created_at"
+    )
+
+    @property
+    def status_label(self) -> str:
+        return get_ticket_status_label(self)
 
 
 class TicketComment(Base):
     __tablename__ = "ticket_comments"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     content = Column(Text, nullable=False)
@@ -126,7 +144,7 @@ class TicketComment(Base):
 class TicketStatusHistory(Base):
     __tablename__ = "ticket_status_history"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True)
     ticket_id = Column(Integer, ForeignKey("tickets.id"), nullable=False)
     old_status = Column(Enum(TicketStatus))
     new_status = Column(Enum(TicketStatus), nullable=False)

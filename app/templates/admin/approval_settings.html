@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Configurações de Aprovação{% endblock %}
+{% block page_title %}Configurações de Aprovação{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+
+  <!-- Número de níveis -->
+  <div class="col-lg-5">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold">
+        <i class="bi bi-sliders me-2 text-primary"></i>Níveis de Aprovação
+      </div>
+      <div class="card-body">
+        <p class="text-muted small mb-3">
+          Define quantos níveis de aprovação são necessários antes de um chamado ser aprovado.
+          Cada nível precisa de pelo menos um aprovador atribuído.
+        </p>
+        <form method="post" action="/admin/settings">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Número de níveis</label>
+            <div class="d-flex align-items-center gap-3">
+              <input type="number" name="num_levels" class="form-control"
+                     style="width:100px" min="1" max="10"
+                     value="{{ cfg.num_levels }}" required>
+              <span class="text-muted small">
+                Atualmente: <strong>{{ cfg.num_levels }} nível(is)</strong>
+                (N1{% for i in range(2, cfg.num_levels + 1) %} → N{{ i }}{% endfor %})
+              </span>
+            </div>
+          </div>
+          <div class="alert alert-info small py-2">
+            <i class="bi bi-info-circle me-1"></i>
+            Fluxo: Solicitante abre chamado → N1 aprova → {% if cfg.num_levels > 1 %}N2 aprova →
+            {% if cfg.num_levels > 2 %}… → {% endif %}{% endif %}<strong>Aprovado</strong>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">
+            <i class="bi bi-save me-1"></i>Salvar configuração
+          </button>
+        </form>
+        {% if cfg.updated_at %}
+        <p class="text-muted small mt-3 mb-0">
+          Última atualização: {{ cfg.updated_at.strftime('%d/%m/%Y %H:%M') }}
+        </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Atribuição de aprovadores por nível -->
+  <div class="col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-header bg-white fw-semibold">
+        <i class="bi bi-people me-2 text-primary"></i>Aprovadores por Nível
+      </div>
+      <div class="card-body">
+        {% if not approvers %}
+        <div class="alert alert-warning small">
+          Nenhum usuário com perfil <strong>Aprovador</strong> cadastrado.
+          <a href="/admin/users/new">Cadastre um aprovador</a>.
+        </div>
+        {% else %}
+
+        <!-- Níveis configurados -->
+        {% for level in range(1, cfg.num_levels + 1) %}
+        <div class="mb-4">
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="badge bg-primary fs-6">N{{ level }}</span>
+            <span class="fw-semibold">Aprovadores N{{ level }}</span>
+          </div>
+
+          {% set level_approvers = approvers | selectattr("approval_level", "equalto", level) | list %}
+          {% if level_approvers %}
+          <ul class="list-group list-group-flush mb-2">
+            {% for u in level_approvers %}
+            <li class="list-group-item d-flex justify-content-between align-items-center py-2 px-0">
+              <div>
+                <i class="bi bi-person-check text-success me-1"></i>
+                <strong>{{ u.name }}</strong>
+                <span class="text-muted small">— {{ u.email }}</span>
+              </div>
+              <span class="badge bg-success">Ativo</span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <div class="alert alert-warning py-2 small">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Nenhum aprovador atribuído a este nível.
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+
+        <hr>
+        <!-- Formulário de atribuição -->
+        <div>
+          <p class="fw-semibold small mb-2">Atribuir / alterar nível de um aprovador:</p>
+          <form method="post" action="/admin/settings/assign-level" class="row g-2 align-items-end">
+            <div class="col-sm-5">
+              <label class="form-label small">Aprovador</label>
+              <select name="user_id" class="form-select form-select-sm" required>
+                <option value="">Selecione…</option>
+                {% for u in approvers %}
+                <option value="{{ u.id }}">
+                  {{ u.name }} {% if u.approval_level %}(N{{ u.approval_level }}){% else %}(sem nível){% endif %}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-sm-3">
+              <label class="form-label small">Nível</label>
+              <select name="approval_level" class="form-select form-select-sm" required>
+                {% for level in range(1, cfg.num_levels + 1) %}
+                <option value="{{ level }}">N{{ level }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-sm-4">
+              <button type="submit" class="btn btn-primary btn-sm w-100">
+                <i class="bi bi-person-gear me-1"></i>Atribuir
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

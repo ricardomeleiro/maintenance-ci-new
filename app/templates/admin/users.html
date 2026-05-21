@@ -31,7 +31,9 @@
             <td>{{ u.email }}</td>
             <td>
               {% if u.role.value == 'admin' %}<span class="badge bg-danger">Administrador</span>
-              {% elif u.role.value == 'approver' %}<span class="badge bg-warning text-dark">Aprovador</span>
+              {% elif u.role.value == 'approver' %}
+                <span class="badge bg-warning text-dark">Aprovador</span>
+                {% if u.approval_level %}<span class="badge bg-info text-dark ms-1">N{{ u.approval_level }}</span>{% endif %}
               {% else %}<span class="badge bg-secondary">Usuário</span>{% endif %}
             </td>
             <td class="text-muted">{{ u.department or '—' }}</td>
