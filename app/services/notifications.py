@@ -263,6 +263,116 @@ async def notify_status_changed(
     await notify_requester_status_changed(ticket, new_status, recipient_email, note)
 
 
+async def notify_user_created(user_email: str, user_name: str, temp_password: str) -> None:
+    """Welcome email sent when an admin creates a new user account."""
+    subject = f"[{settings.APP_NAME}] Seu acesso foi criado"
+    login_url = f"{settings.BASE_URL}/login"
+
+    html = f"""<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#060b14;font-family:'Segoe UI',Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#060b14;min-height:100vh">
+<tr><td align="center" style="padding:40px 16px">
+
+  <!-- Card -->
+  <table width="520" cellpadding="0" cellspacing="0"
+         style="background:#0d1b2e;border:1px solid #1e3a5f;border-radius:20px;overflow:hidden;
+                box-shadow:0 24px 64px rgba(0,0,0,0.7)">
+
+    <!-- Header -->
+    <tr><td style="background:linear-gradient(135deg,#0f2a50 0%,#0d1b2e 100%);
+                   padding:32px 40px;text-align:center;
+                   border-bottom:1px solid #1e3a5f">
+      <img src="https://assinatura.c-innovation.com.br/ci-logo.png"
+           alt="C-Innovation" height="36"
+           style="opacity:0.9;margin-bottom:14px;display:block;margin-left:auto;margin-right:auto">
+      <div style="font-size:28px;font-weight:800;color:#f8fafc;letter-spacing:-1px;line-height:1">
+        Predial<span style="color:#3b82f6;text-shadow:0 0 18px rgba(59,130,246,0.5)">360</span>
+      </div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:6px;
+                  letter-spacing:2.5px;text-transform:uppercase">
+        Sistema de Manutenção Predial
+      </div>
+    </td></tr>
+
+    <!-- Welcome banner -->
+    <tr><td style="background:linear-gradient(135deg,rgba(37,99,235,0.18),rgba(29,78,216,0.08));
+                   padding:24px 40px;border-bottom:1px solid #1e3a5f;text-align:center">
+      <div style="font-size:22px;font-weight:700;color:#f1f5f9;margin-bottom:6px">
+        👋 Bem-vindo(a), {user_name}!
+      </div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.55);line-height:1.6">
+        Sua conta foi criada no {settings.APP_NAME}.
+      </div>
+    </td></tr>
+
+    <!-- Body -->
+    <tr><td style="padding:32px 40px">
+
+      <p style="margin:0 0 20px;font-size:14px;color:rgba(255,255,255,0.65);line-height:1.6">
+        Suas credenciais de acesso estão abaixo. Ao fazer login pela primeira vez,
+        você será solicitado(a) a <strong style="color:#93c5fd">criar uma nova senha</strong>.
+      </p>
+
+      <!-- Credentials box -->
+      <table width="100%" cellpadding="0" cellspacing="0"
+             style="background:#060f1e;border:1px solid #1e3a5f;border-radius:12px;
+                    overflow:hidden;margin-bottom:24px">
+        <tr><td style="padding:14px 20px;border-bottom:1px solid #1a3050">
+          <div style="font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;
+                      letter-spacing:1.5px;margin-bottom:4px">E-mail de acesso</div>
+          <div style="font-size:15px;color:#93c5fd;font-family:monospace">{user_email}</div>
+        </td></tr>
+        <tr><td style="padding:14px 20px">
+          <div style="font-size:10px;color:rgba(255,255,255,0.3);text-transform:uppercase;
+                      letter-spacing:1.5px;margin-bottom:4px">Senha temporária</div>
+          <div style="font-size:16px;color:#f1f5f9;font-family:monospace;letter-spacing:2px;
+                      font-weight:600;background:#0d2240;padding:8px 12px;border-radius:8px;
+                      border:1px solid #2563eb;display:inline-block">{temp_password}</div>
+        </td></tr>
+      </table>
+
+      <!-- Warning -->
+      <table width="100%" cellpadding="0" cellspacing="0"
+             style="background:rgba(234,179,8,0.06);border:1px solid rgba(234,179,8,0.2);
+                    border-radius:10px;margin-bottom:28px">
+        <tr><td style="padding:14px 18px;font-size:13px;color:#fde047;line-height:1.5">
+          ⚠️ &nbsp;Esta é uma senha temporária. Por segurança, você será obrigado(a) a
+          alterá-la no primeiro acesso. Não compartilhe estas credenciais.
+        </td></tr>
+      </table>
+
+      <!-- CTA Button -->
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr><td align="center">
+          <a href="{login_url}"
+             style="display:inline-block;background:linear-gradient(135deg,#2563eb,#1d4ed8);
+                    color:#fff;text-decoration:none;font-weight:700;font-size:15px;
+                    padding:14px 40px;border-radius:12px;letter-spacing:0.3px;
+                    box-shadow:0 8px 24px rgba(37,99,235,0.4)">
+            Acessar o sistema →
+          </a>
+        </td></tr>
+      </table>
+
+    </td></tr>
+
+    <!-- Footer -->
+    <tr><td style="padding:20px 40px;text-align:center;border-top:1px solid #1e3a5f;
+                   background:#060f1e">
+      <div style="font-size:11px;color:rgba(255,255,255,0.2);letter-spacing:0.5px">
+        © 2026 C-Innovation · Predial360 — mensagem automática, não responda este e-mail.
+      </div>
+    </td></tr>
+
+  </table>
+</td></tr>
+</table>
+</body></html>"""
+
+    await _send_email(user_email, subject, html)
+
+
 async def notify_password_reset(user_email: str, user_name: str, reset_link: str) -> None:
     """Send a password reset link to the user."""
     subject = f"[{settings.APP_NAME}] Redefinição de senha"

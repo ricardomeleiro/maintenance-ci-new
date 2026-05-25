@@ -50,13 +50,12 @@
             <input type="text" name="department" class="form-control"
                    value="{{ editing.department or '' if editing else '' }}">
           </div>
-          <div class="mb-3">
-            <label class="form-label">{{ 'Nova senha (deixe em branco para não alterar)' if editing else 'Senha' }}</label>
-            <input type="password" name="{{ 'new_password' if editing else 'password' }}"
-                   class="form-control" {{ '' if editing else 'required' }}
-                   id="password-field" oninput="toggleEmailOption()">
-          </div>
           {% if editing %}
+          <div class="mb-3">
+            <label class="form-label">Nova senha <span class="text-muted fw-normal small">(deixe em branco para não alterar)</span></label>
+            <input type="password" name="new_password"
+                   class="form-control" id="password-field" oninput="toggleEmailOption()">
+          </div>
           <div class="mb-3" id="email-option" style="display:none">
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="send_password_email"
@@ -65,6 +64,12 @@
                 <i class="bi bi-envelope me-1 text-primary"></i>Enviar nova senha por e-mail para o usuário
               </label>
             </div>
+          </div>
+          {% else %}
+          <div class="alert alert-info py-2 small mb-3">
+            <i class="bi bi-key me-1"></i>
+            Uma <strong>senha temporária segura</strong> será gerada automaticamente e enviada por e-mail ao usuário.
+            No primeiro acesso, ele será solicitado a criar uma nova senha.
           </div>
           <div class="mb-4">
             <div class="form-check">

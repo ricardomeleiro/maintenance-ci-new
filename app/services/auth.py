@@ -1,3 +1,5 @@
+import secrets
+import string
 from datetime import datetime, timedelta
 from typing import Optional
 import bcrypt
@@ -5,6 +7,21 @@ from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 from models.user import User
 from config import settings
+
+
+def generate_password(length: int = 16) -> str:
+    """Generate a cryptographically secure password with all character classes."""
+    specials = "!@#$%&*"
+    alphabet = string.ascii_letters + string.digits + specials
+    while True:
+        pwd = "".join(secrets.choice(alphabet) for _ in range(length))
+        if (
+            any(c.isupper() for c in pwd)
+            and any(c.islower() for c in pwd)
+            and any(c.isdigit() for c in pwd)
+            and any(c in specials for c in pwd)
+        ):
+            return pwd
 
 
 def verify_password(plain: str, hashed: str) -> bool:

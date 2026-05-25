@@ -30,6 +30,7 @@ class User(Base):
     # Para aprovadores: nível de aprovação que este usuário executa (1, 2, 3…)
     approval_level = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True)
+    must_change_password = Column(Boolean, default=False)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Criar Senha — Predial360</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      background: #060b14;
+      overflow: hidden;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      cursor: none;
+    }
+
+    #bg-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; }
+    #cursor {
+      position: fixed; width: 12px; height: 12px; background: #3b82f6;
+      border-radius: 50%; pointer-events: none; z-index: 9999;
+      transform: translate(-50%,-50%);
+      box-shadow: 0 0 12px #3b82f6, 0 0 24px rgba(59,130,246,0.5);
+    }
+    #cursor-ring {
+      position: fixed; width: 36px; height: 36px;
+      border: 1.5px solid rgba(59,130,246,0.6); border-radius: 50%;
+      pointer-events: none; z-index: 9998; transform: translate(-50%,-50%);
+      transition: transform 0.18s ease-out, width 0.2s, height 0.2s;
+    }
+
+    .wrapper {
+      position: relative; z-index: 10; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center; padding: 1rem;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.055);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 24px;
+      width: 100%; max-width: 440px;
+      box-shadow: 0 32px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.1);
+      overflow: hidden;
+      animation: cardIn 0.7s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(30px) scale(0.97); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    .card-header {
+      padding: 2.2rem 2rem 1.5rem; text-align: center;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      background: linear-gradient(160deg, rgba(59,130,246,0.1) 0%, transparent 70%);
+    }
+    .logo-img { height: 42px; margin-bottom: 1rem; opacity: 0.92; }
+    .app-name { font-size: 2rem; font-weight: 800; color: #f8fafc; letter-spacing: -1px; line-height: 1; }
+    .app-name .accent { color: #3b82f6; text-shadow: 0 0 20px rgba(59,130,246,0.6); }
+    .welcome-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.25);
+      color: #86efac; border-radius: 20px; padding: 5px 14px;
+      font-size: 0.78rem; font-weight: 600; margin-top: 12px; letter-spacing: 0.3px;
+    }
+
+    .card-body { padding: 2rem; }
+
+    .info-box {
+      background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2);
+      border-radius: 12px; padding: 14px 16px; margin-bottom: 1.5rem;
+      font-size: 0.84rem; color: rgba(255,255,255,0.65); line-height: 1.55;
+    }
+    .info-box strong { color: #93c5fd; }
+
+    .form-label {
+      display: block; color: rgba(255,255,255,0.6); font-size: 0.8rem;
+      font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 0.45rem;
+    }
+    .input-wrap { position: relative; margin-bottom: 1.1rem; }
+    .input-wrap > i.icon {
+      position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%);
+      color: rgba(255,255,255,0.3); font-size: 0.95rem; pointer-events: none;
+    }
+    .form-control {
+      width: 100%; background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1); color: #f1f5f9;
+      border-radius: 12px; padding: 0.7rem 2.6rem 0.7rem 2.5rem;
+      font-size: 0.9rem; outline: none;
+      transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    }
+    .form-control:focus {
+      background: rgba(59,130,246,0.08); border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.18); color: #fff;
+    }
+    .form-control::placeholder { color: rgba(255,255,255,0.2); }
+    .pw-toggle {
+      position: absolute; right: 0.9rem; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: rgba(255,255,255,0.3);
+      cursor: pointer; padding: 0; font-size: 0.95rem;
+    }
+    .pw-toggle:hover { color: #3b82f6; }
+
+    .btn-submit {
+      display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+      width: 100%; background: linear-gradient(135deg, #16a34a, #15803d);
+      border: none; border-radius: 12px; color: #fff; font-weight: 700;
+      font-size: 0.95rem; padding: 0.85rem; cursor: none;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s; margin-top: 0.4rem;
+    }
+    .btn-submit:hover {
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      transform: translateY(-2px); box-shadow: 0 10px 30px rgba(22,163,74,0.45);
+    }
+
+    .alert-danger {
+      background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25);
+      color: #fca5a5; border-radius: 10px; padding: 0.6rem 1rem;
+      font-size: 0.85rem; margin-bottom: 1.2rem;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .alert-warning {
+      background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.25);
+      color: #fde047; border-radius: 10px; padding: 1rem; text-align: center;
+    }
+    .alert-warning i { font-size: 1.5rem; display: block; margin-bottom: 0.5rem; }
+
+    .strength-bar {
+      height: 4px; border-radius: 2px; background: rgba(255,255,255,0.08);
+      margin-top: 6px; overflow: hidden;
+    }
+    .strength-fill { height: 100%; border-radius: 2px; width: 0; transition: width 0.3s, background 0.3s; }
+    .strength-label { font-size: 0.72rem; color: rgba(255,255,255,0.35); margin-top: 4px; }
+
+    .card-footer {
+      padding: 0.9rem 2rem 1.3rem; text-align: center;
+      color: rgba(255,255,255,0.2); font-size: 0.72rem; letter-spacing: 0.5px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<div class="wrapper">
+  <div class="card">
+    <div class="card-header">
+      <img src="https://assinatura.c-innovation.com.br/ci-logo.png" alt="C-Innovation" class="logo-img">
+      <div class="app-name">Predial<span class="accent">360</span></div>
+      <div class="welcome-badge">
+        <i class="bi bi-stars"></i> Primeiro acesso
+      </div>
+    </div>
+
+    <div class="card-body">
+
+      {% if not valid %}
+      <div class="alert-warning">
+        <i class="bi bi-clock-history"></i>
+        Este link expirou ou é inválido.<br>
+        <small style="color:rgba(255,255,255,0.4);margin-top:0.4rem;display:block">
+          Solicite ao administrador que reenvie o acesso.
+        </small>
+      </div>
+
+      {% else %}
+      <div class="info-box">
+        <strong>Bem-vindo(a) ao Predial360!</strong><br>
+        Por segurança, você precisa criar uma senha pessoal antes de continuar.
+        Escolha uma senha <strong>forte e única</strong> — ela substitui a senha temporária enviada por e-mail.
+      </div>
+
+      {% if error %}
+      <div class="alert-danger">
+        <i class="bi bi-exclamation-triangle-fill"></i>{{ error }}
+      </div>
+      {% endif %}
+
+      <form method="post" action="/first-login/{{ token }}">
+        <div>
+          <label class="form-label" for="password">Nova senha</label>
+          <div class="input-wrap">
+            <input type="password" class="form-control" id="password" name="password"
+                   placeholder="Mínimo 6 caracteres" required minlength="6"
+                   autofocus oninput="checkStrength(this.value)">
+            <i class="bi bi-lock icon"></i>
+            <button type="button" class="pw-toggle" onclick="togglePw('password',this)">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+          <div class="strength-bar"><div class="strength-fill" id="strength-fill"></div></div>
+          <div class="strength-label" id="strength-label"></div>
+        </div>
+
+        <div style="margin-top:1rem">
+          <label class="form-label" for="password2">Confirmar senha</label>
+          <div class="input-wrap">
+            <input type="password" class="form-control" id="password2" name="password2"
+                   placeholder="Repita a senha" required minlength="6">
+            <i class="bi bi-lock-fill icon"></i>
+            <button type="button" class="pw-toggle" onclick="togglePw('password2',this)">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-submit">
+          <i class="bi bi-shield-check"></i>Definir minha senha e entrar
+        </button>
+      </form>
+      {% endif %}
+
+    </div>
+
+    <div class="card-footer">© 2026 C-Innovation · Predial360</div>
+  </div>
+</div>
+
+<script>
+/* ── Cursor ── */
+const cur = document.getElementById('cursor');
+const ring = document.getElementById('cursor-ring');
+let mx = -200, my = -200, rx = -200, ry = -200;
+window.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; cur.style.left = mx+'px'; cur.style.top = my+'px'; });
+(function animR(){ rx += (mx-rx)*0.12; ry += (my-ry)*0.12; ring.style.left=rx+'px'; ring.style.top=ry+'px'; requestAnimationFrame(animR); })();
+
+/* ── Background gears (simplified) ── */
+(function(){
+  const canvas = document.getElementById('bg-canvas');
+  const ctx = canvas.getContext('2d');
+  let W, H;
+  function resize(){ W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+  resize(); window.addEventListener('resize', resize);
+  const GEARS = [
+    {rx:0.04,ry:0.08,r:90,teeth:13,speed:0.002,dir:1,a:0},
+    {rx:0.93,ry:0.07,r:65,teeth:10,speed:0.003,dir:-1,a:1.2},
+    {rx:0.96,ry:0.52,r:110,teeth:17,speed:0.0018,dir:1,a:0.5},
+    {rx:0.03,ry:0.75,r:75,teeth:11,speed:0.0028,dir:-1,a:2.0},
+    {rx:0.50,ry:0.97,r:68,teeth:10,speed:0.0032,dir:1,a:0.8},
+    {rx:0.80,ry:0.82,r:50,teeth:8,speed:0.005,dir:-1,a:1.5},
+  ];
+  function drawGear(g){
+    const x=g.rx*W, y=g.ry*H, R=g.r, T=g.teeth, tH=R*0.28, iR=R*0.58, hR=R*0.20;
+    g.a += g.speed * g.dir;
+    ctx.save(); ctx.translate(x,y); ctx.rotate(g.a);
+    const step=(Math.PI*2)/T, gap=0.35;
+    ctx.beginPath();
+    for(let i=0;i<T;i++){
+      const a0=i*step, a1=a0+step*(gap/2), a2=a0+step*0.5, a3=a0+step*(1-gap/2);
+      if(i===0) ctx.moveTo(Math.cos(a0)*R, Math.sin(a0)*R);
+      else       ctx.lineTo(Math.cos(a0)*R, Math.sin(a0)*R);
+      ctx.lineTo(Math.cos(a1)*(R+tH), Math.sin(a1)*(R+tH));
+      ctx.lineTo(Math.cos(a2)*(R+tH), Math.sin(a2)*(R+tH));
+      ctx.lineTo(Math.cos(a3)*R, Math.sin(a3)*R);
+    }
+    ctx.closePath();
+    ctx.fillStyle='rgba(30,64,175,0.15)'; ctx.fill();
+    ctx.strokeStyle='rgba(96,165,250,0.22)'; ctx.lineWidth=1.2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(0,0,iR,0,Math.PI*2);
+    ctx.fillStyle='rgba(15,23,42,0.2)'; ctx.fill();
+    ctx.strokeStyle='rgba(96,165,250,0.15)'; ctx.lineWidth=1; ctx.stroke();
+    const spokes=Math.max(3,Math.floor(T/3));
+    for(let i=0;i<spokes;i++){
+      const a=(i/spokes)*Math.PI*2;
+      ctx.beginPath(); ctx.moveTo(Math.cos(a)*hR*1.8, Math.sin(a)*hR*1.8);
+      ctx.lineTo(Math.cos(a)*iR*0.88, Math.sin(a)*iR*0.88);
+      ctx.strokeStyle='rgba(96,165,250,0.18)'; ctx.lineWidth=R*0.04; ctx.lineCap='round'; ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(0,0,hR,0,Math.PI*2);
+    ctx.fillStyle='#060b14'; ctx.fill();
+    ctx.strokeStyle='rgba(96,165,250,0.2)'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.restore();
+  }
+  function animate(){
+    ctx.clearRect(0,0,W,H);
+    const bg=ctx.createRadialGradient(W*.5,H*.4,0,W*.5,H*.5,Math.max(W,H)*.75);
+    bg.addColorStop(0,'#0e1726'); bg.addColorStop(1,'#060b14');
+    ctx.fillStyle=bg; ctx.fillRect(0,0,W,H);
+    GEARS.forEach(drawGear);
+    requestAnimationFrame(animate);
+  }
+  animate();
+})();
+
+/* ── Helpers ── */
+function togglePw(id, btn){
+  const inp = document.getElementById(id);
+  const icon = btn.querySelector('i');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  icon.className = inp.type === 'password' ? 'bi bi-eye' : 'bi bi-eye-slash';
+}
+
+function checkStrength(pw){
+  const fill = document.getElementById('strength-fill');
+  const label = document.getElementById('strength-label');
+  let score = 0;
+  if (pw.length >= 6)  score++;
+  if (pw.length >= 10) score++;
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
+  if (/\d/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const levels = [
+    {w:'0%',  bg:'transparent', text:''},
+    {w:'25%', bg:'#ef4444',     text:'Muito fraca'},
+    {w:'45%', bg:'#f97316',     text:'Fraca'},
+    {w:'65%', bg:'#eab308',     text:'Razoável'},
+    {w:'82%', bg:'#22c55e',     text:'Forte'},
+    {w:'100%',bg:'#16a34a',     text:'Muito forte'},
+  ];
+  const l = levels[Math.min(score, 5)];
+  fill.style.width = l.w; fill.style.background = l.bg;
+  label.textContent = l.text; label.style.color = l.bg;
+}
+</script>
+</body>
+</html>

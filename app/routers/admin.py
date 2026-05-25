@@ -14,7 +14,7 @@ from models.ticket import (
 )
 from models.audit import AuditLog
 from models.email_log import EmailLog
-from services.auth import hash_password
+from services.auth import hash_password, generate_password
 
 router = APIRouter(prefix="/admin")
 templates = Jinja2Templates(directory="templates")
@@ -49,11 +49,11 @@ def new_user_form(request: Request, current_user: User = Depends(require_admin))
 
 
 @router.post("/users/new")
-def create_user(
+async def create_user(
     request: Request,
+    background_tasks: BackgroundTasks,
     name: str = Form(...),
     email: str = Form(...),
-    password: str = Form(...),
     role: str = Form(...),
     department: str = Form(""),
     approval_level: Optional[int] = Form(None),
@@ -66,16 +66,23 @@ def create_user(
             {"request": request, "current_user": current_user, "editing": None,
              "Role": Role, "ROLE_LABELS": ROLE_LABELS, "error": "E-mail já cadastrado."},
         )
+
+    temp_password = generate_password()
     user = User(
         name=name, email=email,
-        hashed_password=hash_password(password),
+        hashed_password=hash_password(temp_password),
         role=Role(role),
         department=department or None,
         approval_level=approval_level if Role(role) == Role.APPROVER else None,
+        must_change_password=True,
     )
     db.add(user)
     db.commit()
     add_audit(db, current_user.id, "user_created", "user", user.id, {"email": email})
+
+    from services.notifications import notify_user_created
+    background_tasks.add_task(notify_user_created, email, name, temp_password)
+
     return RedirectResponse("/admin/users", status_code=302)
 
 
