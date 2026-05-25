@@ -28,6 +28,8 @@ def admin_root(current_user: User = Depends(require_admin)):
 @router.get("/users", response_class=HTMLResponse)
 def list_users(
     request: Request,
+    error: Optional[str] = None,
+    success: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
@@ -35,7 +37,8 @@ def list_users(
     return templates.TemplateResponse(
         "admin/users.html",
         {"request": request, "current_user": current_user, "users": users,
-         "Role": Role, "ROLE_LABELS": ROLE_LABELS},
+         "Role": Role, "ROLE_LABELS": ROLE_LABELS,
+         "error": error, "success": success},
     )
 
 
@@ -90,6 +93,7 @@ async def create_user(
 def edit_user_form(
     user_id: int,
     request: Request,
+    resent: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
@@ -99,7 +103,8 @@ def edit_user_form(
     return templates.TemplateResponse(
         "admin/user_form.html",
         {"request": request, "current_user": current_user, "editing": editing,
-         "Role": Role, "ROLE_LABELS": ROLE_LABELS, "error": None},
+         "Role": Role, "ROLE_LABELS": ROLE_LABELS, "error": None,
+         "resent": resent == "1"},
     )
 
 
@@ -160,6 +165,78 @@ def toggle_active(
     user.is_active = not user.is_active
     db.commit()
     return RedirectResponse("/admin/users", status_code=302)
+
+
+@router.post("/users/{user_id}/delete")
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    from models.ticket import Ticket, TicketComment, TicketStatusHistory
+
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404)
+    if user.id == current_user.id:
+        return RedirectResponse(
+            "/admin/users?error=Você+não+pode+excluir+sua+própria+conta.", status_code=302
+        )
+
+    # Check non-nullable FK references that would block deletion
+    has_tickets = db.query(Ticket).filter(Ticket.created_by_id == user_id).first()
+    has_comments = db.query(TicketComment).filter(TicketComment.author_id == user_id).first()
+    has_history = db.query(TicketStatusHistory).filter(
+        TicketStatusHistory.changed_by_id == user_id
+    ).first()
+
+    if has_tickets or has_comments or has_history:
+        return RedirectResponse(
+            "/admin/users?error=Não+é+possível+excluir+este+usuário+pois+ele+possui+"
+            "chamados+ou+histórico+associados.+Desative+a+conta+em+vez+de+excluir.",
+            status_code=302,
+        )
+
+    # Null out nullable FK references (assigned_to, approved_by)
+    db.query(Ticket).filter(Ticket.assigned_to_id == user_id).update(
+        {"assigned_to_id": None}, synchronize_session=False
+    )
+    db.query(Ticket).filter(Ticket.approved_by_id == user_id).update(
+        {"approved_by_id": None}, synchronize_session=False
+    )
+
+    add_audit(db, current_user.id, "user_deleted", "user", user_id,
+              {"email": user.email, "name": user.name})
+    db.delete(user)
+    db.commit()
+    return RedirectResponse(
+        f"/admin/users?success=Usuário+{user.name}+removido+com+sucesso.", status_code=302
+    )
+
+
+@router.post("/users/{user_id}/resend-password")
+async def resend_password(
+    user_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404)
+
+    new_password = generate_password()
+    user.hashed_password = hash_password(new_password)
+    user.must_change_password = True
+    db.commit()
+
+    add_audit(db, current_user.id, "user_password_reset", "user", user_id,
+              {"email": user.email})
+
+    from services.notifications import notify_user_created
+    background_tasks.add_task(notify_user_created, user.email, user.name, new_password)
+
+    return RedirectResponse(f"/admin/users/{user_id}/edit?resent=1", status_code=302)
 
 
 @router.get("/users/import", response_class=HTMLResponse)

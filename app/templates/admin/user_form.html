@@ -5,7 +5,18 @@
 {% block content %}
 <div class="row justify-content-center">
   <div class="col-lg-6">
-    <div class="card border-0 shadow-sm">
+
+    {# ── Banner: senha reenviada ──────────────────────────────────────── #}
+    {% if resent %}
+    <div class="alert alert-success alert-dismissible fade show shadow-sm mb-3">
+      <i class="bi bi-envelope-check-fill me-2"></i>
+      Nova senha gerada e enviada por e-mail. O usuário precisará alterá-la no próximo acesso.
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    {# ── Formulário principal ─────────────────────────────────────────── #}
+    <div class="card border-0 shadow-sm mb-3">
       <div class="card-body p-4">
         {% if error %}
         <div class="alert alert-danger">{{ error }}</div>
@@ -37,8 +48,7 @@
             <select name="approval_level" class="form-select">
               <option value="">Sem nível atribuído</option>
               {% for n in range(1, 11) %}
-              <option value="{{ n }}"
-                {% if editing and editing.approval_level == n %}selected{% endif %}>
+              <option value="{{ n }}" {% if editing and editing.approval_level == n %}selected{% endif %}>
                 N{{ n }}
               </option>
               {% endfor %}
@@ -50,11 +60,15 @@
             <input type="text" name="department" class="form-control"
                    value="{{ editing.department or '' if editing else '' }}">
           </div>
+
           {% if editing %}
-          <div class="mb-3">
-            <label class="form-label">Nova senha <span class="text-muted fw-normal small">(deixe em branco para não alterar)</span></label>
-            <input type="password" name="new_password"
-                   class="form-control" id="password-field" oninput="toggleEmailOption()">
+          {# Edição: campo de nova senha manual (opcional) #}
+          <div class="mb-2">
+            <label class="form-label">
+              Nova senha <span class="text-muted fw-normal small">(deixe em branco para não alterar)</span>
+            </label>
+            <input type="password" name="new_password" class="form-control"
+                   id="password-field" oninput="toggleEmailOption()" autocomplete="new-password">
           </div>
           <div class="mb-3" id="email-option" style="display:none">
             <div class="form-check">
@@ -65,18 +79,20 @@
               </label>
             </div>
           </div>
-          {% else %}
-          <div class="alert alert-info py-2 small mb-3">
-            <i class="bi bi-key me-1"></i>
-            Uma <strong>senha temporária segura</strong> será gerada automaticamente e enviada por e-mail ao usuário.
-            No primeiro acesso, ele será solicitado a criar uma nova senha.
-          </div>
           <div class="mb-4">
             <div class="form-check">
               <input type="checkbox" class="form-check-input" id="is_active" name="is_active"
                      value="on" {% if editing.is_active %}checked{% endif %}>
               <label class="form-check-label" for="is_active">Usuário ativo</label>
             </div>
+          </div>
+
+          {% else %}
+          {# Criação: senha automática #}
+          <div class="alert alert-info py-2 small mb-4">
+            <i class="bi bi-key me-1"></i>
+            Uma <strong>senha temporária segura</strong> será gerada automaticamente e enviada
+            por e-mail ao usuário. No primeiro acesso, ele será solicitado a criar uma nova senha.
           </div>
           {% endif %}
 
@@ -87,12 +103,13 @@
               role === "approver" ? "block" : "none";
           }
           function toggleEmailOption() {
-            var pw = document.getElementById("password-field");
+            var pw  = document.getElementById("password-field");
             var opt = document.getElementById("email-option");
             if (opt) opt.style.display = pw && pw.value.length > 0 ? "block" : "none";
           }
           toggleLevelField();
           </script>
+
           <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary">
               <i class="bi bi-save me-1"></i>Salvar
@@ -102,6 +119,28 @@
         </form>
       </div>
     </div>
+
+    {# ── Reenviar Senha (somente no modo edição) ──────────────────────── #}
+    {% if editing %}
+    <div class="card border-0 shadow-sm border-start border-warning border-3">
+      <div class="card-body p-4">
+        <h6 class="fw-semibold mb-1">
+          <i class="bi bi-key-fill text-warning me-1"></i>Reenviar Senha
+        </h6>
+        <p class="text-muted small mb-3">
+          Gera uma nova senha complexa automaticamente, envia por e-mail para
+          <strong>{{ editing.email }}</strong> e exige troca no próximo acesso.
+        </p>
+        <form method="post" action="/admin/users/{{ editing.id }}/resend-password"
+              onsubmit="return confirm('Gerar nova senha e enviar por e-mail para {{ editing.name }}?')">
+          <button type="submit" class="btn btn-warning btn-sm">
+            <i class="bi bi-envelope-arrow-up me-1"></i>Gerar e Reenviar Senha
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
   </div>
 </div>
 {% endblock %}

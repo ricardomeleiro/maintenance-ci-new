@@ -14,6 +14,21 @@
 {% endblock %}
 
 {% block content %}
+
+{% if error %}
+<div class="alert alert-danger alert-dismissible fade show shadow-sm mb-3" role="alert">
+  <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ error }}
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+{% if success %}
+<div class="alert alert-success alert-dismissible fade show shadow-sm mb-3" role="alert">
+  <i class="bi bi-check-circle-fill me-2"></i>{{ success }}
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
 <div class="card border-0 shadow-sm">
   <div class="card-body p-0">
     <div class="table-responsive">
@@ -52,14 +67,22 @@
             <td class="text-muted small">{{ u.created_at.strftime('%d/%m/%Y') }}</td>
             <td>
               <div class="d-flex gap-1">
-                <a href="/admin/users/{{ u.id }}/edit" class="btn btn-sm btn-outline-secondary">
+                <a href="/admin/users/{{ u.id }}/edit" class="btn btn-sm btn-outline-secondary"
+                   title="Editar">
                   <i class="bi bi-pencil"></i>
                 </a>
                 {% if u.id != current_user.id %}
                 <form method="post" action="/admin/users/{{ u.id }}/toggle"
-                      onsubmit="return confirm('Alterar status do usuário?')">
-                  <button class="btn btn-sm btn-outline-{{ 'danger' if u.is_active else 'success' }}">
-                    <i class="bi bi-{{ 'pause' if u.is_active else 'play' }}"></i>
+                      onsubmit="return confirm('Alterar status do usuário {{ u.name }}?')">
+                  <button class="btn btn-sm btn-outline-{{ 'warning' if u.is_active else 'success' }}"
+                          title="{{ 'Desativar' if u.is_active else 'Ativar' }}">
+                    <i class="bi bi-{{ 'pause-circle' if u.is_active else 'play-circle' }}"></i>
+                  </button>
+                </form>
+                <form method="post" action="/admin/users/{{ u.id }}/delete"
+                      onsubmit="return confirm('Tem certeza que deseja REMOVER permanentemente o usuário {{ u.name }}?\n\nEsta ação não pode ser desfeita.')">
+                  <button type="submit" class="btn btn-sm btn-outline-danger" title="Remover conta">
+                    <i class="bi bi-trash3"></i>
                   </button>
                 </form>
                 {% endif %}
