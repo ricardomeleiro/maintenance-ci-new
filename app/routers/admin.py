@@ -70,6 +70,11 @@ async def create_user(
              "Role": Role, "ROLE_LABELS": ROLE_LABELS, "error": "E-mail já cadastrado."},
         )
 
+    import secrets
+    from datetime import datetime, timedelta
+    from models.password_reset import PasswordResetToken
+    from config import settings as app_settings
+
     temp_password = generate_password()
     user = User(
         name=name, email=email,
@@ -80,11 +85,20 @@ async def create_user(
         must_change_password=True,
     )
     db.add(user)
+    db.flush()  # get user.id before commit
+
+    reset_token = secrets.token_urlsafe(32)
+    db.add(PasswordResetToken(
+        user_id=user.id,
+        token=reset_token,
+        expires_at=datetime.utcnow() + timedelta(hours=72),
+    ))
     db.commit()
     add_audit(db, current_user.id, "user_created", "user", user.id, {"email": email})
 
+    change_link = f"{app_settings.BASE_URL}/first-login/{reset_token}"
     from services.notifications import notify_user_created
-    background_tasks.add_task(notify_user_created, email, name, temp_password)
+    background_tasks.add_task(notify_user_created, email, name, temp_password, change_link)
 
     return RedirectResponse("/admin/users", status_code=302)
 
@@ -221,6 +235,11 @@ async def resend_password(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
+    import secrets
+    from datetime import datetime, timedelta
+    from models.password_reset import PasswordResetToken
+    from config import settings as app_settings
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404)
@@ -228,13 +247,23 @@ async def resend_password(
     new_password = generate_password()
     user.hashed_password = hash_password(new_password)
     user.must_change_password = True
+
+    # Invalidate any previous tokens and generate a fresh direct link
+    db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user_id).delete()
+    reset_token = secrets.token_urlsafe(32)
+    db.add(PasswordResetToken(
+        user_id=user.id,
+        token=reset_token,
+        expires_at=datetime.utcnow() + timedelta(hours=72),
+    ))
     db.commit()
 
     add_audit(db, current_user.id, "user_password_reset", "user", user_id,
               {"email": user.email})
 
+    change_link = f"{app_settings.BASE_URL}/first-login/{reset_token}"
     from services.notifications import notify_user_created
-    background_tasks.add_task(notify_user_created, user.email, user.name, new_password)
+    background_tasks.add_task(notify_user_created, user.email, user.name, new_password, change_link)
 
     return RedirectResponse(f"/admin/users/{user_id}/edit?resent=1", status_code=302)
 

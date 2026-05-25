@@ -263,10 +263,16 @@ async def notify_status_changed(
     await notify_requester_status_changed(ticket, new_status, recipient_email, note)
 
 
-async def notify_user_created(user_email: str, user_name: str, temp_password: str) -> None:
+async def notify_user_created(
+    user_email: str,
+    user_name: str,
+    temp_password: str,
+    change_password_link: Optional[str] = None,
+) -> None:
     """Welcome email sent when an admin creates a new user account."""
     subject = f"[{settings.APP_NAME}] Seu acesso foi criado"
-    login_url = f"{settings.BASE_URL}/login"
+    cta_url = change_password_link or f"{settings.BASE_URL}/login"
+    cta_label = "Criar minha senha →" if change_password_link else "Acessar o sistema →"
 
     html = f"""<!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -345,12 +351,12 @@ async def notify_user_created(user_email: str, user_name: str, temp_password: st
       <!-- CTA Button -->
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr><td align="center">
-          <a href="{login_url}"
+          <a href="{cta_url}"
              style="display:inline-block;background:linear-gradient(135deg,#2563eb,#1d4ed8);
                     color:#fff;text-decoration:none;font-weight:700;font-size:15px;
                     padding:14px 40px;border-radius:12px;letter-spacing:0.3px;
                     box-shadow:0 8px 24px rgba(37,99,235,0.4)">
-            Acessar o sistema →
+            {cta_label}
           </a>
         </td></tr>
       </table>
