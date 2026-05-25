@@ -73,7 +73,6 @@ async def create_user(
     import secrets
     from datetime import datetime, timedelta
     from models.password_reset import PasswordResetToken
-    from config import settings as app_settings
 
     temp_password = generate_password()
     user = User(
@@ -96,7 +95,8 @@ async def create_user(
     db.commit()
     add_audit(db, current_user.id, "user_created", "user", user.id, {"email": email})
 
-    change_link = f"{app_settings.BASE_URL}/first-login/{reset_token}"
+    base = str(request.base_url).rstrip("/")
+    change_link = f"{base}/first-login/{reset_token}"
     from services.notifications import notify_user_created
     background_tasks.add_task(notify_user_created, email, name, temp_password, change_link)
 
@@ -231,6 +231,7 @@ def delete_user(
 @router.post("/users/{user_id}/resend-password")
 async def resend_password(
     user_id: int,
+    request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
@@ -238,7 +239,6 @@ async def resend_password(
     import secrets
     from datetime import datetime, timedelta
     from models.password_reset import PasswordResetToken
-    from config import settings as app_settings
 
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -248,7 +248,6 @@ async def resend_password(
     user.hashed_password = hash_password(new_password)
     user.must_change_password = True
 
-    # Invalidate any previous tokens and generate a fresh direct link
     db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user_id).delete()
     reset_token = secrets.token_urlsafe(32)
     db.add(PasswordResetToken(
@@ -261,7 +260,8 @@ async def resend_password(
     add_audit(db, current_user.id, "user_password_reset", "user", user_id,
               {"email": user.email})
 
-    change_link = f"{app_settings.BASE_URL}/first-login/{reset_token}"
+    base = str(request.base_url).rstrip("/")
+    change_link = f"{base}/first-login/{reset_token}"
     from services.notifications import notify_user_created
     background_tasks.add_task(notify_user_created, user.email, user.name, new_password, change_link)
 
