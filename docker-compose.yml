@@ -24,7 +24,7 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      BASE_URL: ${BASE_URL:-https://predial360.c-innovation.com.br}
+      BASE_URL: https://predial360.c-innovation.com.br
     depends_on:
       db:
         condition: service_healthy
