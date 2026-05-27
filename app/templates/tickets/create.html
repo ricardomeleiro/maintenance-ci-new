@@ -73,3 +73,26 @@
   </div>
 </div>
 {% endblock %}
+
+{% block scripts %}
+{% if current_user and current_user.role.value == 'user' %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    Predial360Tour.resume({{ current_user.id }}, [
+      {
+        sel: '.card.border-0.shadow-sm',
+        title: 'Preencha os detalhes da solicitação',
+        text: 'Informe o <strong style="color:#60a5fa">título</strong>, categoria, prioridade e uma <strong style="color:#60a5fa">descrição detalhada</strong> do problema. Fotos e anexos ajudam muito na avaliação — quanto mais informação, mais rápido a equipe age.',
+        btnLabel: 'Entendido →'
+      },
+      {
+        sel: 'button[type="submit"]',
+        title: 'Envie e acompanhe pelo Dashboard',
+        text: 'Após enviar, seu chamado é encaminhado aos aprovadores. Você receberá <strong style="color:#60a5fa">notificações por e-mail</strong> em cada atualização de status e pode acompanhar tudo em tempo real no <strong style="color:#60a5fa">Dashboard</strong>.',
+        btnLabel: 'Começar!'
+      }
+    ]);
+  });
+</script>
+{% endif %}
+{% endblock %}

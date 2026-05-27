@@ -89,3 +89,24 @@
   </div>
 </div>
 {% endblock %}
+
+{% block scripts %}
+{% if current_user and current_user.role.value == 'user' %}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    Predial360Tour.start({{ current_user.id }}, [
+      {
+        sel: 'a[href="/tickets"]',
+        title: 'Registre seu primeiro chamado',
+        text: 'Detectou um problema no prédio? Clique em <strong style="color:#60a5fa">Chamados</strong> para abrir uma solicitação de reparo ou manutenção. Nossa equipe receberá e avaliará sua requisição.',
+        btnLabel: 'Ir para Chamados →',
+        action: function () {
+          sessionStorage.setItem('p360_cont', '1');
+          window.location.href = '/tickets/new';
+        }
+      }
+    ]);
+  });
+</script>
+{% endif %}
+{% endblock %}
