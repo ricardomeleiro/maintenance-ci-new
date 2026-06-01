@@ -279,11 +279,13 @@ def import_users_form(request: Request, current_user: User = Depends(require_adm
 @router.post("/users/import", response_class=HTMLResponse)
 async def import_users_csv(
     request: Request,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    import csv, io
+    import csv, io, secrets
+    from models.password_reset import PasswordResetToken
 
     results = {"created": [], "skipped": [], "errors": []}
 
@@ -319,6 +321,7 @@ async def import_users_csv(
         normalized_rows.append({k.strip().lower(): (v or "").strip() for k, v in row.items()})
 
     valid_roles = {r.value for r in Role}
+    base = str(request.base_url).rstrip("/")
 
     for i, row in enumerate(normalized_rows, start=2):
         row_label = f"linha {i}"
@@ -356,10 +359,25 @@ async def import_users_csv(
             role=Role(role_val),
             department=department,
             approval_level=approval_level if Role(role_val) == Role.APPROVER else None,
+            must_change_password=True,
         )
         db.add(user)
         try:
             db.flush()
+
+            # Create password reset token for first login
+            reset_token = secrets.token_urlsafe(32)
+            db.add(PasswordResetToken(
+                user_id=user.id,
+                token=reset_token,
+                expires_at=datetime.utcnow() + timedelta(hours=72),
+            ))
+
+            # Send invitation email
+            change_link = f"{base}/first-login/{reset_token}"
+            from services.notifications import notify_user_created
+            background_tasks.add_task(notify_user_created, email, name, password, change_link)
+
             results["created"].append({"email": email, "name": name, "role": role_val})
         except Exception as exc:
             db.rollback()
