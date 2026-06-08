@@ -165,7 +165,7 @@ async def forgot_password_submit(
         db.add(PasswordResetToken(user_id=user.id, token=token, expires_at=expires))
         db.commit()
 
-        reset_link = f"{settings.BASE_URL}/reset-password/{token}"
+        reset_link = f"{str(request.base_url).rstrip('/')}/reset-password/{token}"
         from services.notifications import notify_password_reset
         background_tasks.add_task(notify_password_reset, user.email, user.name, reset_link)
 
