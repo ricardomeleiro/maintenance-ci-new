@@ -5,6 +5,7 @@ from typing import Optional
 import bcrypt
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from models.user import User
 from config import settings
 
@@ -49,7 +50,9 @@ def decode_token(token: str) -> Optional[dict]:
 
 
 def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
-    user = db.query(User).filter(User.email == email, User.is_active == True).first()
+    user = db.query(User).filter(
+        func.lower(User.email) == email.lower().strip(), User.is_active == True
+    ).first()
     if not user or not verify_password(password, user.hashed_password):
         return None
     return user

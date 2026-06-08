@@ -150,9 +150,12 @@ async def forgot_password_submit(
     from models.user import User
     from models.password_reset import PasswordResetToken
     from config import settings
+    from sqlalchemy import func
 
     # Always show the same success message to avoid email enumeration
-    user = db.query(User).filter(User.email == email, User.is_active == True).first()
+    user = db.query(User).filter(
+        func.lower(User.email) == email.lower().strip(), User.is_active == True
+    ).first()
     if user:
         # Clean up previous tokens for this user
         db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).delete()

@@ -63,7 +63,8 @@ async def create_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin),
 ):
-    if db.query(User).filter(User.email == email).first():
+    email = email.lower().strip()
+    if db.query(User).filter(func.lower(User.email) == email).first():
         return templates.TemplateResponse(
             "admin/user_form.html",
             {"request": request, "current_user": current_user, "editing": None,
@@ -142,7 +143,8 @@ async def update_user(
     if not user:
         raise HTTPException(status_code=404)
 
-    conflict = db.query(User).filter(User.email == email, User.id != user_id).first()
+    email = email.lower().strip()
+    conflict = db.query(User).filter(func.lower(User.email) == email, User.id != user_id).first()
     if conflict:
         return templates.TemplateResponse(
             "admin/user_form.html",
@@ -326,7 +328,7 @@ async def import_users_csv(
     for i, row in enumerate(normalized_rows, start=2):
         row_label = f"linha {i}"
         name = row.get("name", "")
-        email = row.get("email", "")
+        email = row.get("email", "").lower()
         password = row.get("password", "")
         role_val = row.get("role", "").lower()
         department = row.get("department", "") or None
@@ -340,7 +342,7 @@ async def import_users_csv(
             results["errors"].append({"row": row_label, "reason": f"Perfil inválido '{role_val}' para {email}. Use: user, approver, admin"})
             continue
 
-        if db.query(User).filter(User.email == email).first():
+        if db.query(User).filter(func.lower(User.email) == email).first():
             results["skipped"].append({"email": email, "reason": "E-mail já cadastrado"})
             continue
 

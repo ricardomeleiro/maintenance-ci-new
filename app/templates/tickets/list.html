@@ -3,11 +3,9 @@
 {% block page_title %}Chamados{% endblock %}
 
 {% block navbar_actions %}
-{% if current_user.role.value == 'user' %}
 <a href="/tickets/new" class="btn btn-primary btn-sm">
   <i class="bi bi-plus-lg me-1"></i>Novo Chamado
 </a>
-{% endif %}
 {% endblock %}
 
 {% block content %}
