@@ -157,7 +157,10 @@ async def create_ticket(
         ).all()
     ]
     from services.notifications import notify_ticket_created
-    background_tasks.add_task(notify_ticket_created, ticket, current_user.name, approver_emails)
+    background_tasks.add_task(
+        notify_ticket_created, ticket, current_user.name, approver_emails,
+        str(request.base_url).rstrip("/"),
+    )
 
     return RedirectResponse(f"/tickets/{ticket.id}", status_code=302)
 

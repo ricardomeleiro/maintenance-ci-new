@@ -123,6 +123,7 @@ async def submit_for_approval(
 @router.post("/{ticket_id}/approve")
 async def approve_ticket(
     ticket_id: int,
+    request: Request,
     background_tasks: BackgroundTasks,
     note: Optional[str] = Form(None),
     scheduled_date: Optional[str] = Form(None),
@@ -187,6 +188,7 @@ async def approve_ticket(
     background_tasks.add_task(
         notify_requester_status_changed,
         ticket, new_status.value, ticket.creator.email, history_note, ticket.scheduled_date,
+        str(request.base_url).rstrip("/"),
     )
 
     # After final approval redirect to the ticket so the approver can
@@ -201,6 +203,7 @@ async def approve_ticket(
 @router.post("/{ticket_id}/reject")
 async def reject_ticket(
     ticket_id: int,
+    request: Request,
     background_tasks: BackgroundTasks,
     rejection_reason: str = Form(...),
     note: Optional[str] = Form(None),
@@ -236,6 +239,7 @@ async def reject_ticket(
     background_tasks.add_task(
         notify_requester_status_changed,
         ticket, "rejected", ticket.creator.email, rejection_reason,
+        base_url=str(request.base_url).rstrip("/"),
     )
 
     return RedirectResponse("/tickets", status_code=302)
@@ -245,6 +249,7 @@ async def reject_ticket(
 @router.post("/{ticket_id}/start")
 async def start_execution(
     ticket_id: int,
+    request: Request,
     background_tasks: BackgroundTasks,
     note: Optional[str] = Form(None),
     db: Session = Depends(get_db),
@@ -273,6 +278,7 @@ async def start_execution(
     background_tasks.add_task(
         notify_requester_status_changed,
         ticket, "in_progress", ticket.creator.email, history_note,
+        base_url=str(request.base_url).rstrip("/"),
     )
 
     return RedirectResponse(f"/tickets/{ticket_id}", status_code=302)
@@ -281,6 +287,7 @@ async def start_execution(
 @router.post("/{ticket_id}/complete")
 async def complete_ticket(
     ticket_id: int,
+    request: Request,
     background_tasks: BackgroundTasks,
     note: Optional[str] = Form(None),
     db: Session = Depends(get_db),
@@ -311,6 +318,7 @@ async def complete_ticket(
     background_tasks.add_task(
         notify_requester_status_changed,
         ticket, "completed", ticket.creator.email, history_note,
+        base_url=str(request.base_url).rstrip("/"),
     )
 
     return RedirectResponse(f"/tickets/{ticket_id}", status_code=302)

@@ -163,14 +163,15 @@ async def _send_teams(title: str, message: str, color: str = "0078D4") -> None:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-async def notify_ticket_created(ticket, creator_name: str, approver_emails: list[str]) -> None:
+async def notify_ticket_created(ticket, creator_name: str, approver_emails: list[str], base_url: str = "") -> None:
     """Notify all approvers and admins when a new ticket is opened."""
     if not approver_emails:
         return
 
     priority = PRIORITY_LABELS_PT.get(ticket.priority.value, ticket.priority.value)
     category = CATEGORY_LABELS_PT.get(ticket.category.value, ticket.category.value)
-    link = f"{settings.BASE_URL}/tickets/{ticket.id}"
+    _base = base_url or settings.BASE_URL
+    link = f"{_base}/tickets/{ticket.id}"
     subject = f"[{settings.APP_NAME}] Novo chamado #{ticket.id}: {ticket.title}"
 
     desc = ticket.description
@@ -204,6 +205,7 @@ async def notify_requester_status_changed(
     requester_email: str,
     note: Optional[str] = None,
     scheduled_date=None,
+    base_url: str = "",
 ) -> None:
     """
     Notify the requester when their ticket reaches a terminal/key status.
@@ -214,7 +216,8 @@ async def notify_requester_status_changed(
 
     label = STATUS_LABELS_PT.get(new_status, new_status)
     color = STATUS_COLOR_HEX.get(new_status, "6c757d")
-    link = f"{settings.BASE_URL}/tickets/{ticket.id}"
+    _base = base_url or settings.BASE_URL
+    link = f"{_base}/tickets/{ticket.id}"
     subject = f"[{settings.APP_NAME}] Chamado #{ticket.id} — {label}"
 
     rows = (
@@ -258,9 +261,9 @@ async def notify_requester_status_changed(
 
 # Backward-compat alias used by approvals.py
 async def notify_status_changed(
-    ticket, new_status: str, recipient_email: str, note: Optional[str] = None
+    ticket, new_status: str, recipient_email: str, note: Optional[str] = None, base_url: str = ""
 ) -> None:
-    await notify_requester_status_changed(ticket, new_status, recipient_email, note)
+    await notify_requester_status_changed(ticket, new_status, recipient_email, note, base_url=base_url)
 
 
 async def notify_user_created(
