@@ -144,13 +144,14 @@ async def update_user(
         raise HTTPException(status_code=404)
 
     email = email.lower().strip()
-    conflict = db.query(User).filter(func.lower(User.email) == email, User.id != user_id).first()
-    if conflict:
-        return templates.TemplateResponse(
-            "admin/user_form.html",
-            {"request": request, "current_user": current_user, "editing": user,
-             "Role": Role, "ROLE_LABELS": ROLE_LABELS, "error": "E-mail já em uso."},
-        )
+    if email != (user.email or "").lower().strip():
+        conflict = db.query(User).filter(func.lower(User.email) == email, User.id != user_id).first()
+        if conflict:
+            return templates.TemplateResponse(
+                "admin/user_form.html",
+                {"request": request, "current_user": current_user, "editing": user,
+                 "Role": Role, "ROLE_LABELS": ROLE_LABELS, "error": "E-mail já em uso."},
+            )
 
     user.name = name
     user.email = email
