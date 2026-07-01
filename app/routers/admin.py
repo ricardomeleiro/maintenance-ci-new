@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from database import get_db
 from dependencies import require_admin, require_approver, add_audit
 from models.user import User, Role, ROLE_LABELS
@@ -144,17 +145,19 @@ async def update_user(
         raise HTTPException(status_code=404)
 
     email = email.lower().strip()
-    if email != (user.email or "").lower().strip():
+    email_changed = email != (user.email or "").lower().strip()
+    if email_changed:
         conflict = db.query(User).filter(func.lower(User.email) == email, User.id != user_id).first()
         if conflict:
             return templates.TemplateResponse(
                 "admin/user_form.html",
                 {"request": request, "current_user": current_user, "editing": user,
-                 "Role": Role, "ROLE_LABELS": ROLE_LABELS, "error": "E-mail já em uso."},
+                 "Role": Role, "ROLE_LABELS": ROLE_LABELS,
+                 "error": f"E-mail já em uso pelo usuário '{conflict.name}' (ID {conflict.id})."},
             )
+        user.email = email
 
     user.name = name
-    user.email = email
     user.role = Role(role)
     user.department = department or None
     user.is_active = is_active == "on"
@@ -165,7 +168,19 @@ async def update_user(
             from services.notifications import notify_password_changed
             background_tasks.add_task(notify_password_changed, email, name, new_password)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return templates.TemplateResponse(
+            "admin/user_form.html",
+            {"request": request, "current_user": current_user, "editing": user,
+             "Role": Role, "ROLE_LABELS": ROLE_LABELS,
+             "error": "Não foi possível salvar: e-mail duplicado no banco de dados. "
+                      "Verifique se existe outro usuário com o mesmo e-mail (a checagem "
+                      "no aplicativo é case-insensitive, mas o índice do banco pode conter "
+                      "duplicatas antigas com maiúsculas/minúsculas diferentes)."},
+        )
     add_audit(db, current_user.id, "user_updated", "user", user_id)
     return RedirectResponse("/admin/users", status_code=302)
 
