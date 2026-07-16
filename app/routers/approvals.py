@@ -51,12 +51,22 @@ def pending_approvals(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_approver),
 ):
-    review_query = db.query(Ticket).filter(Ticket.status == TicketStatus.UNDER_REVIEW)
+    cfg = _get_config(db)
+
+    all_review = (
+        db.query(Ticket)
+        .filter(Ticket.status == TicketStatus.UNDER_REVIEW)
+        .order_by(Ticket.created_at.asc())
+        .all()
+    )
+
     if current_user.role == Role.APPROVER and current_user.approval_level:
-        review_query = review_query.filter(
-            Ticket.current_approval_level == current_user.approval_level
-        )
-    review_tickets = review_query.order_by(Ticket.created_at.asc()).all()
+        my_level = current_user.approval_level
+        review_tickets = [t for t in all_review if t.current_approval_level == my_level]
+        other_level_tickets = [t for t in all_review if t.current_approval_level != my_level]
+    else:
+        review_tickets = all_review
+        other_level_tickets = []
 
     approved_tickets = (
         db.query(Ticket)
@@ -77,8 +87,10 @@ def pending_approvals(
             "request": request,
             "current_user": current_user,
             "review_tickets": review_tickets,
+            "other_level_tickets": other_level_tickets,
             "approved_tickets": approved_tickets,
             "inprogress_tickets": inprogress_tickets,
+            "num_levels": cfg.num_levels,
             "STATUS_LABELS": STATUS_LABELS,
             "STATUS_COLORS": STATUS_COLORS,
             "PRIORITY_LABELS": PRIORITY_LABELS,
