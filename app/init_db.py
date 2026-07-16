@@ -80,6 +80,19 @@ def init():
               END IF;
             END $$;
             """,
+            # Indice unico funcional case-insensitive em users.email.
+            # Impede duplicados que so diferem por caixa (ex.: "Ricardo@..." e "ricardo@...").
+            # Tolerante a duplicados pre-existentes: emite WARNING mas nao aborta o startup,
+            # para que 'dedupe_users.py' possa ser rodado depois e o proximo restart crie o indice.
+            """
+            DO $$ BEGIN
+              BEGIN
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_users_email_lower ON users (lower(email));
+              EXCEPTION WHEN unique_violation THEN
+                RAISE WARNING 'ux_users_email_lower NAO criado: existem emails duplicados por caixa. Rode dedupe_users.py --apply e reinicie.';
+              END;
+            END $$;
+            """,
         ]
 
         for sql in migrations:
@@ -93,17 +106,18 @@ def init():
         from services.auth import hash_password
         from config import settings
 
+        admin_email = (settings.ADMIN_EMAIL or "").lower().strip()
         if not db.query(User).filter(User.role == Role.ADMIN).first():
             admin = User(
                 name=settings.ADMIN_NAME,
-                email=settings.ADMIN_EMAIL,
+                email=admin_email,
                 hashed_password=hash_password(settings.ADMIN_PASSWORD),
                 role=Role.ADMIN,
                 is_active=True,
             )
             db.add(admin)
             db.commit()
-            print(f"[init_db] Admin created: {settings.ADMIN_EMAIL}")
+            print(f"[init_db] Admin created: {admin_email}")
         else:
             print("[init_db] Admin already exists, skipping seed.")
 
